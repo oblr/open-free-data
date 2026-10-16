@@ -177,32 +177,11 @@ def read(
         filled = ~np.isnan(values).all(axis=1)
         time, values = time[filled], values[filled]
     else:
-        time, values = _means(time, values, resolution)
+        time, values = sources.means(time, values, resolution, TZ)
         filled = np.flatnonzero(~np.isnan(values).all(axis=1))
         span = slice(filled[0], filled[-1] + 1) if len(filled) else slice(0, 0)
         time, values = time[span], values[span]
     return Table(tuple(fields), time.astype("datetime64[ms]"), values)
-
-
-def _means(time: np.ndarray, values: np.ndarray, resolution: str) -> tuple[np.ndarray, np.ndarray]:
-    """Means per Paris hour or day, labelled with its start; NaN where it has no value."""
-    if not len(time):
-        return time, values
-    if resolution == "hour":  # Paris is a whole number of hours off UTC
-        bins = time - time % 3_600_000
-    else:
-        first, last = (datetime.fromtimestamp(t / 1000, TZ).date() for t in (time[0], time[-1]))
-        days = np.arange(np.datetime64(first, "D"), np.datetime64(last, "D") + np.timedelta64(2, "D"))
-        edges = np.array([sources.epoch_ms(datetime.fromisoformat(str(d)), TZ) for d in days], np.int64)
-        bins = edges[np.searchsorted(edges, time, side="right") - 1]
-    labels, group = np.unique(bins, return_inverse=True)
-    present = ~np.isnan(values)
-    sums = np.zeros((len(labels), values.shape[1]))
-    counts = np.zeros((len(labels), values.shape[1]))
-    np.add.at(sums, group, np.where(present, values, 0.0))
-    np.add.at(counts, group, present)
-    with np.errstate(invalid="ignore"):
-        return labels, np.where(counts > 0, sums / counts, np.nan)
 
 
 def _history(store: Cache, year: int) -> bytes:

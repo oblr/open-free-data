@@ -20,6 +20,8 @@ Python 3.11 or newer; the only dependency is numpy.
     python smard.py 410 4169 --start 2024-01-01 --end 2024-12-31 --out load.csv
     python eco2mix.py --list              # RTE éCO2mix fields
     python eco2mix.py consommation taux_co2 --resolution day --start 2024-01-01
+    python pegelonline.py --list rhein    # gauging stations, by name or water
+    python pegelonline.py KÖLN/W KÖLN/Q --resolution native
     python cache.py                       # what is cached, per source
     python cache.py clear de-smard --older-than 30d
 
@@ -37,6 +39,7 @@ to 127.0.0.1 and has no authentication.
 | `cache.py` | Downloads, cached under `cache/<source>/` (git-ignored). |
 | `smard.py` | Reader for SMARD, the Bundesnetzagentur's electricity market data. |
 | `eco2mix.py` | Reader for RTE éCO2mix, France's electricity mix (via ODRÉ). |
+| `pegelonline.py` | Reader for PEGELONLINE, the gauges of the German federal waterways (last 31 days only). |
 | `browser.py`, `browser.html` | The local web page and its JSON/CSV API. |
 
 The readers' command lines take inclusive dates in the source's timezone

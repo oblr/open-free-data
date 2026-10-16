@@ -224,3 +224,32 @@ def write_csv(table: Table, out: TextIO, zone: str | tzinfo) -> None:
 
 def _zone(zone: str | tzinfo) -> tzinfo:
     return ZoneInfo(zone) if isinstance(zone, str) else zone
+
+
+def means(time: np.ndarray, values: np.ndarray, resolution: str, zone: str | tzinfo) -> tuple[np.ndarray, np.ndarray]:
+    """Means per hour or per day in `zone`, labelled with its start; NaN where it has no value.
+
+    `time` is epoch ms (UTC), sorted; `values` has one column per series.
+    Hours are UTC hours, which are local hours in any zone a whole number
+    of hours off UTC.
+    """
+    if resolution not in ("hour", "day"):
+        raise ValueError(f"means are per hour or day, not {resolution!r}")
+    if not len(time):
+        return time, values
+    if resolution == "hour":
+        bins = time - time % 3_600_000
+    else:
+        tz = _zone(zone)
+        first, last = (datetime.fromtimestamp(t / 1000, tz).date() for t in (time[0], time[-1]))
+        days = np.arange(np.datetime64(first, "D"), np.datetime64(last, "D") + np.timedelta64(2, "D"))
+        edges = np.array([epoch_ms(datetime.fromisoformat(str(d)), tz) for d in days], np.int64)
+        bins = edges[np.searchsorted(edges, time, side="right") - 1]
+    labels, group = np.unique(bins, return_inverse=True)
+    present = ~np.isnan(values)
+    sums = np.zeros((len(labels), values.shape[1]))
+    counts = np.zeros((len(labels), values.shape[1]))
+    np.add.at(sums, group, np.where(present, values, 0.0))
+    np.add.at(counts, group, present)
+    with np.errstate(invalid="ignore"):
+        return labels, np.where(counts > 0, sums / counts, np.nan)

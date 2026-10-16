@@ -505,10 +505,18 @@ $("start").value = new Date(today - 30 * 864e5).toISOString().slice(0, 10);
 (async () => {
   try {
     sources = await (await fetch("/api/sources")).json();
-    for (const s of sources.filter(s => s.plugin)) {
-      const rows = await (await fetch(`/api/sources/${encodeURIComponent(s.id)}/datasets`)).json();
-      for (const d of rows) datasets.set(keyOf(s.id, d.id), { ...d, source: s.id });
-    }
+    // All sources at once; one that fails (its server down, say) is left out rather than breaking the page.
+    const failed = [];
+    await Promise.all(sources.filter(s => s.plugin).map(async s => {
+      try {
+        const response = await fetch(`/api/sources/${encodeURIComponent(s.id)}/datasets`);
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error);
+        for (const d of body) datasets.set(keyOf(s.id, d.id), { ...d, source: s.id });
+      } catch (error) {
+        failed.push(`${s.title}: ${error.message}`);
+      }
+    }));
     tree = buildTree();
     const plugged = sources.filter(s => s.plugin).length;
     $("subtitle").textContent = `${plugged} of ${sources.length} sources plugged in · ${datasets.size} datasets`;
@@ -517,6 +525,7 @@ $("start").value = new Date(today - 30 * 864e5).toISOString().slice(0, 10);
     revealSelection();
     renderTree();
     renderSelection();
+    if (failed.length) setStatus(`Could not load ${failed.join("; ")}`, true);
     if (restored) load();
   } catch (error) {
     setStatus("Could not reach the local server.", true);

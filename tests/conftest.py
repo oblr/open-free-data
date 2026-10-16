@@ -18,6 +18,21 @@ HOUR_MS = 3_600_000
 T0 = 1_704_067_200_000  # 2024-01-01T00:00Z
 
 
+# Two PEGELONLINE stations, as its station list describes them.
+STATIONS = [
+    {"uuid": "u-koeln", "number": "2730010", "shortname": "KÖLN", "km": 688.0, "agency": "STANDORT KÖLN",
+     "water": {"shortname": "RHEIN", "longname": "RHEIN"},
+     "timeseries": [
+         {"shortname": "W", "longname": "WASSERSTAND ROHDATEN", "unit": "cm", "equidistance": 15,
+          "gaugeZero": {"unit": "m. ü. NHN", "value": 35.038, "validFrom": "2019-11-01"}},
+         {"shortname": "Q", "longname": "ABFLUSS_ROHDATEN", "unit": "m³/s", "equidistance": 15},
+     ]},
+    {"uuid": "u-bonn", "number": "2710080", "shortname": "BONN", "km": 654.8, "agency": "STANDORT BONN",
+     "water": {"shortname": "RHEIN", "longname": "RHEIN"},
+     "timeseries": [{"shortname": "XYZ", "longname": "SICHTWEITE", "unit": "m", "equidistance": 60}]},
+]
+
+
 @pytest.fixture(autouse=True)
 def cache_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / "cache"
@@ -55,3 +70,9 @@ def smard_files(cache_root: Path) -> dict[str, list[float | None]]:
     for chunk, series in chunks.items():
         put(cache_root, "de-smard", f"{folder}/410_DE_hour_{chunk}.json", {"meta_data": {}, "series": series})
     return chunks
+
+
+@pytest.fixture
+def pegelonline_stations(cache_root: Path) -> list[dict]:
+    put(cache_root, "de-pegelonline", "stations.json", STATIONS)
+    return STATIONS

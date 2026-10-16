@@ -1,0 +1,5 @@
+{
+  "data-source-id": "fr-geodair-air-quality",
+  "link": "https://www.data.gouv.fr/datasets/5b98b648634f415309d52a50",
+  "description": "LCSQA / Geod'air: hourly O3, NO2, SO2, PM10, PM2.5 and CO measurements from French air quality stations, history from 2013. CSV files; no documented API."
+}

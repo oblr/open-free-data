@@ -1,0 +1,5 @@
+{
+  "data-source-id": "de-destatis-genesis",
+  "link": "https://www.destatis.de/EN/Service/OpenData/api-webservice.html",
+  "description": "Destatis GENESIS-Online: official German economic and social statistics, mostly monthly or quarterly series, via a free REST/JSON API under Datenlizenz Deutschland 2.0."
+}

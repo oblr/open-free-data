@@ -1,0 +1,5 @@
+{
+  "data-source-id": "de-pegelonline",
+  "link": "https://www.pegelonline.wsv.de/webservice/guideRestapi",
+  "description": "WSV PEGELONLINE REST API: water levels on federal waterways at 1 to 60 min resolution, last 30 days only, plus water level forecasts. CC BY 4.0."
+}

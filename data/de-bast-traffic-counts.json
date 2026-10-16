@@ -1,0 +1,5 @@
+{
+  "data-source-id": "de-bast-traffic-counts",
+  "link": "https://www.bast.de",
+  "description": "BASt permanent automatic traffic counting stations: hourly vehicle counts on federal roads, published yearly as CSV files with inconsistent formats; device outages are filled in by estimation."
+}

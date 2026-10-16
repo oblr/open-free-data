@@ -1,0 +1,5 @@
+{
+  "data-source-id": "fr-hubeau-hydrometrie",
+  "link": "https://hubeau.eaufrance.fr/page/api-hydrometrie",
+  "description": "Hub'Eau hydrometry API: river water level and flow from ~3,000 French stations, real time with a one-month window, plus daily and monthly mean flows back to 1900. REST API, no key."
+}

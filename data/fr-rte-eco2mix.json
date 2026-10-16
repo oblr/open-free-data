@@ -1,0 +1,5 @@
+{
+  "data-source-id": "fr-rte-eco2mix",
+  "link": "https://www.data.gouv.fr/datasets/donnees-eco2mix-nationales-temps-reel-1",
+  "description": "RTE eCO2mix (via ODRE): French electricity demand, generation by fuel type and day-ahead / same-day demand forecasts at 15-min resolution, national and regional. API limited to 50k calls per user per month; real-time values are later replaced by consolidated and final figures."
+}

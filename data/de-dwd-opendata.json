@@ -1,0 +1,5 @@
+{
+  "data-source-id": "de-dwd-opendata",
+  "link": "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/",
+  "description": "Deutscher Wetterdienst open data: weather station observations (temperature, wind, precipitation, cloud cover, ...) at 10-min, hourly and daily resolution, one zip file per station, split into recent (not fully quality-controlled) and historical."
+}

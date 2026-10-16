@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free Data Browser</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.min.css">
+<script src="https://cdn.jsdelivr.net/npm/uplot@1.6.30/dist/uPlot.iife.min.js"></script>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e3e2dd;
+  --accent: #2f6fdb; --accent-soft: #e6eefc; --error: #b42318; --guide: #d9d8d2;
+  --s1: #2f6fdb; --s2: #d9480f; --s3: #2b8a3e; --s4: #ae3ec9; --s5: #e67700; --s6: #0b7285; --s7: #c2255c; --s8: #5c940d;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161614; --panel: #1f1f1d; --text: #ecebe6; --muted: #9a9993; --line: #33332f;
+    --accent: #6d9cf0; --accent-soft: #23304a; --error: #f97066; --guide: #3d3d38;
+    --s1: #6d9cf0; --s2: #ff8a4c; --s3: #5cc46e; --s4: #d07ae6; --s5: #ffb02e; --s6: #3bc9db; --s7: #f06595; --s8: #a9e34b;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+header h1 { font-size: 17px; margin: 0; }
+header span { color: var(--muted); font-size: 13px; }
+main { display: grid; grid-template-columns: 340px 1fr; min-height: calc(100vh - 52px); }
+aside { border-right: 1px solid var(--line); padding: 14px 12px 14px 16px; overflow: auto; max-height: calc(100vh - 52px); position: sticky; top: 0; }
+section { padding: 14px 16px; min-width: 0; }
+input, select, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+input[type="search"] { width: 100%; }
+button { cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.link { border: 0; background: none; color: var(--accent); padding: 2px 4px; font-size: 12px; }
+button:disabled { opacity: .55; cursor: default; }
+.tree-tools { display: flex; gap: 2px; justify-content: flex-end; margin: 6px 0 4px; }
+
+/* Tree */
+.tree { list-style: none; margin: 0; padding: 0; }
+.row { display: flex; align-items: center; gap: 6px; min-height: 30px; padding-right: 4px; border-radius: 6px; position: relative; }
+.row:hover { background: var(--accent-soft); }
+.row .indent { flex: none; align-self: stretch; display: flex; }
+.row .indent i { width: 16px; border-left: 1px solid var(--guide); margin-left: 9px; margin-right: -9px; }
+.caret { flex: none; width: 20px; height: 20px; padding: 0; border: 0; background: none; color: var(--muted); display: grid; place-items: center; border-radius: 4px; }
+.caret svg { transition: transform .12s; }
+.caret[aria-expanded="true"] svg { transform: rotate(90deg); }
+.caret.leaf { visibility: hidden; }
+.row input[type="checkbox"] { flex: none; margin: 0; }
+.row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.row .meta { flex: none; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.row.country > .name { font-weight: 650; }
+.row.source > .name { font-weight: 600; }
+.row.source .sid { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
+.row.group > .name { color: var(--text); }
+.row.unplugged > .name { color: var(--muted); }
+.row .tag { flex: none; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
+.row a.tag { color: var(--accent); text-decoration: none; }
+.icon { flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--muted);
+  display: grid; place-items: center; font-size: 13px; text-decoration: none; line-height: 1; }
+.icon:hover, .icon[aria-expanded="true"] { color: var(--accent); background: var(--accent-soft); }
+.info { list-style: none; display: flex; padding: 2px 8px 8px 0; font-size: 13px; color: var(--muted); }
+.info .indent { flex: none; }
+.info p { margin: 0 0 4px; color: var(--text); }
+.info a { color: var(--accent); word-break: break-all; }
+.details { margin-top: 18px; }
+.details h2 { font-size: 13px; margin: 0 0 8px; }
+.details dl { margin: 0; display: grid; grid-template-columns: minmax(160px, max-content) 1fr; gap: 6px 16px; }
+.details dt { font-weight: 600; }
+.details dt .path { color: var(--muted); font-weight: 400; }
+.details dd { margin: 0; color: var(--muted); }
+.details dd p { margin: 0; color: var(--text); }
+.details a { color: var(--accent); }
+@media (max-width: 760px) { .details dl { grid-template-columns: 1fr; } .details dd { margin-bottom: 8px; } }
+mark { background: color-mix(in srgb, var(--accent) 25%, transparent); color: inherit; border-radius: 2px; }
+.empty { color: var(--muted); margin-top: 10px; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.controls label, .options label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.options { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.options fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 0; }
+.options legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
+.options .help { font-size: 12px; color: var(--muted); max-width: 220px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; min-height: 26px; }
+.chip { display: inline-flex; gap: 4px; align-items: center; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 2px 6px 2px 10px; font-size: 13px; }
+.chip .path { color: var(--muted); }
+.chip button { border: 0; padding: 0 4px; background: none; color: var(--muted); }
+.status { color: var(--muted); min-height: 20px; margin: 6px 0; }
+.status.error { color: var(--error); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+#chart { min-height: 420px; }
+.uplot { font-family: inherit; }
+table { border-collapse: collapse; width: 100%; margin-top: 14px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; }
+td .path { color: var(--muted); }
+.table-wrap { overflow-x: auto; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+@media (max-width: 760px) {
+  main { grid-template-columns: 1fr; }
+  aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 55vh; position: static; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Free Data Browser</h1>
+  <span id="subtitle">Government open data, one plugin per source</span>
+</header>
+<main>
+  <aside>
+    <input type="search" id="search" placeholder="Search: germany solar, price, forecast wind…" autofocus>
+    <div class="tree-tools">
+      <button class="link" id="expand">Expand all</button>
+      <button class="link" id="collapse">Collapse all</button>
+      <button class="link" id="clear">Clear selection</button>
+    </div>
+    <ul class="tree" id="tree" role="tree" aria-label="Data sources"></ul>
+  </aside>
+  <section>
+    <div class="controls">
+      <label>From <input type="date" id="start"></label>
+      <label>To <input type="date" id="end"></label>
+      <button class="primary" id="load">Load</button>
+      <button id="csv">Download CSV</button>
+    </div>
+    <div class="options" id="options"></div>
+    <div class="chips" id="chips"></div>
+    <div class="status" id="status">Open a source on the left and tick datasets, or a whole group, then Load.</div>
+    <div class="card"><div id="chart"></div></div>
+    <div class="details" id="details" hidden>
+      <h2>Selected series</h2>
+      <dl id="details-list"></dl>
+    </div>
+    <div class="table-wrap"><table id="stats" hidden>
+      <thead><tr><th>Dataset</th><th>Source</th><th>Unit</th><th>Points</th><th>Missing</th><th>Min</th><th>Mean</th><th>Max</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const el = (tag, props = {}, ...children) => {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children.filter(c => c != null));
+  return node;
+};
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const colors = () => [1, 2, 3, 4, 5, 6, 7, 8].map(i => css(`--s${i}`));
+const fmt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const SEP = " / ";  // nests groups, see sources.Dataset.group
+const CARET = '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1.5 7 5 3 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+let sources = [];                 // from /api/sources
+const datasets = new Map();       // "source:dataset" -> dataset with .source
+const selected = new Set();       // "source:dataset"
+const expanded = new Set();       // node keys
+const infoOpen = new Set();       // datasets whose description is unfolded in the tree
+const optionValues = {};          // source -> {option: value}
+let tree = null;                  // root node
+let plot = null, lastData = null;
+
+const sourceById = id => sources.find(s => s.id === id);
+const keyOf = (source, id) => `${source}:${id}`;
+const pathOf = d => [sourceById(d.source).title, ...(d.group ? d.group.split(SEP) : [])];
+
+// ---- tree model: country > source > group > subgroup ... > dataset ----
+
+function node(key, kind, label, extra = {}) { return { key, kind, label, children: [], leaves: [], ...extra }; }
+
+function buildTree() {
+  const root = node("root", "root", "");
+  const child = (parent, key, kind, label, extra) => {
+    let found = parent.children.find(c => c.key === key);
+    if (!found) parent.children.push(found = node(key, kind, label, extra));
+    return found;
+  };
+  for (const s of sources) {  // plugged-in sources first, as the server sorts them
+    const country = child(root, `c:${s.country}`, "country", s.country);
+    const src = child(country, `s:${s.id}`, s.plugin ? "source" : "unplugged", s.title, { source: s });
+    if (!s.plugin) continue;
+    for (const d of [...datasets.values()].filter(d => d.source === s.id)) {
+      let parent = src, path = "";
+      for (const part of d.group ? d.group.split(SEP) : []) {
+        path = path ? path + SEP + part : part;
+        parent = child(parent, `g:${s.id}:${path}`, "group", part);
+      }
+      parent.children.push(node(keyOf(s.id, d.id), "dataset", d.label, { dataset: d }));
+    }
+  }
+  (function collect(n) {  // every node knows the datasets below it
+    n.leaves = n.kind === "dataset" ? [n.key] : n.children.flatMap(collect);
+    return n.leaves;
+  })(root);
+  root.children.sort((a, b) => (b.leaves.length > 0) - (a.leaves.length > 0));  // countries with data first
+  return root;
+}
+
+function searchText(n) {
+  if (n.kind === "dataset") {
+    const d = n.dataset, s = sourceById(d.source);
+    return `${s.country} ${s.title} ${s.id} ${d.group} ${d.label} ${d.id} ${d.unit} ${d.description}`.toLowerCase();
+  }
+  if (n.kind === "unplugged") return `${n.source.country} ${n.source.id} ${n.source.description}`.toLowerCase();
+  return null;
+}
+
+// The nodes to show: all of them, or those on a path to a match.
+function visibleKeys(words) {
+  if (!words.length) return null;
+  const keep = new Set();
+  (function walk(n, trail) {
+    const text = searchText(n);
+    if (text !== null && words.every(w => text.includes(w))) for (const k of [...trail, n.key]) keep.add(k);
+    for (const c of n.children) walk(c, [...trail, n.key]);
+  })(tree, []);
+  return keep;
+}
+
+function highlight(text, words) {
+  const span = el("span");
+  if (!words.length) { span.textContent = text; return span; }
+  const alternatives = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const isWord = new RegExp(`^(?:${alternatives})$`, "i");
+  for (const part of text.split(new RegExp(`(${alternatives})`, "gi"))) {
+    if (part) span.append(isWord.test(part) ? el("mark", { textContent: part }) : part);
+  }
+  return span;
+}
+
+function renderTree() {
+  const words = $("search").value.toLowerCase().split(/\s+/).filter(Boolean);
+  const visible = visibleKeys(words);
+  const list = $("tree");
+  list.replaceChildren();
+  const rows = [];
+  (function walk(n, depth) {
+    for (const c of n.children) {
+      if (visible && !visible.has(c.key)) continue;
+      rows.push(row(c, depth, words));
+      if (c.kind === "dataset" && infoOpen.has(c.key)) rows.push(info(c.dataset, depth));
+      const open = visible ? true : expanded.has(c.key);
+      if (open && c.children.length) walk(c, depth + 1);
+    }
+  })(tree, 0);
+  list.append(...rows);
+  if (!rows.length) list.append(el("li", { className: "empty", textContent: "Nothing matches." }));
+}
+
+function row(n, depth, words) {
+  const searching = words.length > 0;
+  const open = searching || expanded.has(n.key);
+  const hasKids = n.children.length > 0;
+  const li = el("li", { className: `row ${n.kind}`, role: "treeitem" });
+  li.setAttribute("aria-level", depth + 1);
+  if (hasKids) li.setAttribute("aria-expanded", open);
+
+  const indent = el("span", { className: "indent" }, ...Array.from({ length: depth }, () => el("i")));
+  const caret = el("button", { className: "caret" + (hasKids ? "" : " leaf"), title: open ? "Collapse" : "Expand", innerHTML: CARET });
+  caret.setAttribute("aria-expanded", open);
+  caret.tabIndex = hasKids ? 0 : -1;
+  const toggle = () => { expanded.has(n.key) ? expanded.delete(n.key) : expanded.add(n.key); renderTree(); };
+  caret.onclick = toggle;
+  li.append(indent, caret);
+
+  let check = null;
+  if (n.leaves.length) {  // tick a dataset, or everything below a group, source or country
+    const chosen = n.leaves.filter(k => selected.has(k)).length;
+    const box = el("input", { type: "checkbox", checked: chosen === n.leaves.length, indeterminate: chosen > 0 && chosen < n.leaves.length,
+      title: n.kind === "dataset" ? "" : `Select all ${n.leaves.length} datasets below` });
+    box.onchange = () => {
+      for (const k of n.leaves) box.checked ? selected.add(k) : selected.delete(k);
+      if (box.checked && hasKids) expanded.add(n.key);
+      renderTree(); renderSelection();
+    };
+    li.append(box);
+    check = box;
+  }
+
+  const name = el("span", { className: "name" }, highlight(n.label, words));
+  if ((n.kind === "source" || n.kind === "unplugged") && n.label !== n.source.id) name.append(el("span", { className: "sid", textContent: n.source.id }));
+  name.title = n.kind === "dataset" ? n.dataset.description : n.source?.description ?? "";
+  name.onclick = hasKids ? toggle : check ? () => check.click() : null;
+  li.append(name);
+
+  if (n.kind === "dataset") {
+    const d = n.dataset;
+    li.append(el("span", { className: "meta", textContent: d.unit }));
+    const more = el("button", { className: "icon", textContent: "ⓘ", title: "About this series",
+      onclick: () => { infoOpen.has(n.key) ? infoOpen.delete(n.key) : infoOpen.add(n.key); renderTree(); } });
+    more.setAttribute("aria-expanded", infoOpen.has(n.key));
+    li.append(more);
+    if (d.link) li.append(sourceLink(d, "icon"));
+  }
+  else if (n.kind === "unplugged") {
+    li.append(el("span", { className: "tag", textContent: "no plugin" }));
+    if (n.source.link) li.append(el("a", { className: "tag", href: n.source.link, target: "_blank", rel: "noopener", textContent: "site ↗" }));
+  } else if (n.leaves.length) {
+    const chosen = n.leaves.filter(k => selected.has(k)).length;
+    li.append(el("span", { className: "meta", textContent: chosen ? `${chosen}/${n.leaves.length}` : n.leaves.length }));
+  } else if (n.kind === "country") {
+    li.append(el("span", { className: "meta", textContent: `${n.children.length} sources` }));
+  }
+  return li;
+}
+
+function sourceLink(d, className, text = "↗") {
+  return el("a", { className, href: d.link, target: "_blank", rel: "noopener", textContent: text,
+    title: `Open on ${sourceById(d.source).title}: ${d.link}` });
+}
+
+function info(d, depth) {  // the unfolded description under a dataset row
+  const body = el("div", {}, el("p", { textContent: d.description || "No description yet." }),
+    d.link ? sourceLink(d, "", d.link) : el("span", { textContent: "No link to the source website yet." }));
+  return el("li", { className: "info" }, el("span", { className: "indent", style: `width:${depth * 16 + 46}px` }), body);
+}
+
+function renderDetails() {  // description and source link of every selected series
+  const list = $("details-list");
+  list.replaceChildren();
+  for (const key of selected) {
+    const d = datasets.get(key);
+    list.append(
+      el("dt", {}, crumbs(d), d.label),
+      el("dd", {}, el("p", { textContent: d.description || "No description yet." }),
+        d.link ? sourceLink(d, "", `${sourceById(d.source).title} ↗`) : "No link to the source website yet."));
+  }
+  $("details").hidden = selected.size === 0;
+}
+
+function setExpanded(open) {
+  expanded.clear();
+  if (open) (function walk(n) { for (const c of n.children) if (c.children.length) { expanded.add(c.key); walk(c); } })(tree);
+  renderTree();
+}
+
+function revealSelection() {  // open the path to every selected dataset
+  for (const key of selected) {
+    const d = datasets.get(key), s = sourceById(d.source);
+    expanded.add(`c:${s.country}`); expanded.add(`s:${s.id}`);
+    let path = "";
+    for (const part of d.group ? d.group.split(SEP) : []) { path = path ? path + SEP + part : part; expanded.add(`g:${s.id}:${path}`); }
+  }
+}
+
+// ---- selection, options, loading ----
+
+function selectedSources() { return [...new Set([...selected].map(k => datasets.get(k).source))]; }
+
+function crumbs(d) {  // the source only matters once several are selected
+  const path = selectedSources().length > 1 ? pathOf(d) : pathOf(d).slice(1);
+  return path.length ? el("span", { className: "path", textContent: path.join(" › ") + " › " }) : null;
+}
+
+function renderSelection() {
+  const chips = $("chips");
+  chips.replaceChildren();
+  for (const key of selected) {
+    const d = datasets.get(key);
+    chips.append(el("span", { className: "chip" }, crumbs(d), d.label,
+      el("button", { textContent: "×", title: "Remove", onclick: () => { selected.delete(key); renderSelection(); renderTree(); } })));
+  }
+  renderDetails();
+  const options = $("options");
+  options.replaceChildren();
+  for (const id of selectedSources()) {
+    const s = sourceById(id);
+    if (!s.options.length) continue;
+    const values = optionValues[id] ??= Object.fromEntries(s.options.map(o => [o.name, o.default]));
+    const set = el("fieldset", {}, el("legend", { textContent: s.title }));
+    for (const o of s.options) {
+      const select = el("select", { onchange: () => { values[o.name] = select.value; } },
+        ...o.choices.map(c => el("option", { value: c, textContent: c, selected: c === values[o.name] })));
+      set.append(el("label", { title: o.help }, o.label, select));
+      if (o.help) set.append(el("span", { className: "help", textContent: o.help }));
+    }
+    options.append(set);
+  }
+}
+
+function query(format) {
+  const p = new URLSearchParams();
+  for (const key of selected) p.append("d", key);
+  for (const id of selectedSources()) for (const [k, v] of Object.entries(optionValues[id] || {})) p.set(`${id}.${k}`, v);
+  if ($("start").value) p.set("start", $("start").value);
+  if ($("end").value) p.set("end", $("end").value);
+  if (format) p.set("format", format);
+  return p.toString();
+}
+
+function setStatus(text, error = false) {
+  $("status").textContent = text;
+  $("status").classList.toggle("error", error);
+}
+
+async function load() {
+  if (!selected.size) { setStatus("Pick at least one dataset first.", true); return; }
+  $("load").disabled = true;
+  const started = performance.now();
+  history.replaceState(null, "", "#" + query());
+  setStatus("Loading… the first request for a long range can take a while; later ones come from the cache.");
+  try {
+    const response = await fetch(`/api/series?${query()}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || response.statusText);
+    if (!data.time.length) { setStatus("No data in this range."); return; }
+    lastData = data;
+    draw(data);
+    stats(data);
+    setStatus(`${fmt.format(data.time.length)} time steps in ${((performance.now() - started) / 1000).toFixed(1)} s · times shown in ${zoneOf(data)}.`);
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    $("load").disabled = false;
+  }
+}
+
+function zoneOf(data) {
+  const zones = new Set(data.columns.map(c => sourceById(c.source).timezone));
+  return zones.size === 1 ? [...zones][0] : "UTC";
+}
+
+function title(c) { return [...(c.group ? c.group.split(SEP) : []), c.label].join(" › "); }
+
+function draw(data) {
+  const palette = colors();
+  const units = [...new Set(data.columns.map(c => c.unit || "value"))];
+  const zone = zoneOf(data);
+  const axisStyle = { stroke: css("--muted"), grid: { stroke: css("--line"), width: 1 }, ticks: { stroke: css("--line") } };
+  const opts = {
+    width: $("chart").clientWidth,
+    height: 420,
+    tzDate: ts => uPlot.tzDate(new Date(ts * 1e3), zone),
+    cursor: { drag: { x: true, y: false } },
+    scales: Object.fromEntries(units.map(u => [u, { auto: true }])),
+    axes: [
+      { ...axisStyle },
+      ...units.map((u, i) => ({ ...axisStyle, scale: u, label: u, side: i % 2 ? 1 : 3, size: 70,
+        grid: i === 0 ? axisStyle.grid : { show: false }, values: (_, ticks) => ticks.map(v => fmt.format(v)) })),
+    ],
+    series: [
+      {},
+      ...data.columns.map((c, i) => ({
+        label: title(c), scale: c.unit || "value", stroke: palette[i % palette.length], width: 1.5,
+        value: (_, v) => v == null ? "–" : `${fmt.format(v)} ${c.unit}`,
+      })),
+    ],
+  };
+  // uPlot breaks the line at null (a real gap) and joins across undefined
+  // (a time this source doesn't have, only there because of another source).
+  const values = data.values.map((column, i) => column.map((v, j) => data.on_grid[i][j] === "1" ? v : undefined));
+  if (plot) plot.destroy();
+  $("chart").replaceChildren();
+  plot = new uPlot(opts, [data.time, ...values], $("chart"));
+}
+
+function stats(data) {
+  const palette = colors();
+  const body = $("stats").querySelector("tbody");
+  body.replaceChildren();
+  data.columns.forEach((c, i) => {
+    const own = data.values[i].filter((_, j) => data.on_grid[i][j] === "1");  // this source's own time steps
+    const values = own.filter(v => v != null);
+    const sum = values.reduce((a, b) => a + b, 0);
+    const min = values.reduce((a, b) => Math.min(a, b), Infinity);  // no spread: arrays can be 400k long
+    const max = values.reduce((a, b) => Math.max(a, b), -Infinity);
+    const n = values.length;
+    const group = c.group ? c.group.split(SEP).join(" › ") + " › " : "";
+    const first = el("td", {}, el("span", { className: "swatch", style: `background:${palette[i % palette.length]}` }),
+      el("span", { className: "path", textContent: group }), c.label);
+    body.append(el("tr", {}, first, ...[sourceById(c.source).title, c.unit, fmt.format(n), fmt.format(own.length - n),
+      n ? fmt.format(min) : "–", n ? fmt.format(sum / n) : "–", n ? fmt.format(max) : "–"].map(t => el("td", { textContent: t }))));
+  });
+  $("stats").hidden = false;
+}
+
+function restore() {  // selection, options and dates from the address, so a view can be bookmarked
+  const p = new URLSearchParams(location.hash.slice(1));
+  for (const key of p.getAll("d")) if (datasets.has(key)) selected.add(key);
+  for (const [k, v] of p) {
+    const [source, name] = k.split(".");
+    if (name && sourceById(source)?.plugin) (optionValues[source] ??= Object.fromEntries(sourceById(source).options.map(o => [o.name, o.default])))[name] = v;
+  }
+  if (p.get("start")) $("start").value = p.get("start");
+  if (p.get("end")) $("end").value = p.get("end");
+  return selected.size > 0;
+}
+
+$("search").oninput = renderTree;
+$("expand").onclick = () => setExpanded(true);
+$("collapse").onclick = () => setExpanded(false);
+$("clear").onclick = () => { selected.clear(); renderTree(); renderSelection(); };
+$("load").onclick = load;
+$("csv").onclick = () => {
+  if (!selected.size) { setStatus("Pick at least one dataset first.", true); return; }
+  location.href = `/api/series?${query("csv")}`;
+};
+new ResizeObserver(() => plot && plot.setSize({ width: $("chart").clientWidth, height: 420 })).observe($("chart"));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => lastData && (draw(lastData), stats(lastData)));
+
+const today = new Date();
+$("end").value = today.toISOString().slice(0, 10);
+$("start").value = new Date(today - 30 * 864e5).toISOString().slice(0, 10);
+
+(async () => {
+  try {
+    sources = await (await fetch("/api/sources")).json();
+    for (const s of sources.filter(s => s.plugin)) {
+      const rows = await (await fetch(`/api/sources/${encodeURIComponent(s.id)}/datasets`)).json();
+      for (const d of rows) datasets.set(keyOf(s.id, d.id), { ...d, source: s.id });
+    }
+    tree = buildTree();
+    const plugged = sources.filter(s => s.plugin).length;
+    $("subtitle").textContent = `${plugged} of ${sources.length} sources plugged in · ${datasets.size} datasets`;
+    for (const s of sources.filter(s => s.plugin)) { expanded.add(`c:${s.country}`); expanded.add(`s:${s.id}`); }  // start one level into each plugged-in source
+    const restored = restore();
+    revealSelection();
+    renderTree();
+    renderSelection();
+    if (restored) load();
+  } catch (error) {
+    setStatus("Could not reach the local server.", true);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "data-source-id": "fr-meteo-france",
+  "link": "https://www.data.gouv.fr/organizations/meteo-france/datasets",
+  "description": "Meteo-France public data: weather station observations at 6-min and hourly resolution (Observations API keeps the last 24h; the Climatology API serves the historical archive), plus files on data.gouv.fr. Licence varies per dataset."
+}

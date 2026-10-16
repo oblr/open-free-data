@@ -1,0 +1,5 @@
+{
+  "data-source-id": "de-smard",
+  "link": "https://www.smard.de/en/downloadcenter/download-market-data",
+  "description": "Bundesnetzagentur SMARD: German electricity generation by fuel type, grid load and prices at quarter-hour resolution from 2015. Free CSV download (up to 2 years per file); unofficial REST API without a key."
+}

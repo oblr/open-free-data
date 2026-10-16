@@ -1,0 +1,93 @@
+from __future__ import annotations
+
+import os
+import time
+
+import pytest
+
+import cache
+from cache import Cache, FetchError
+
+
+@pytest.fixture
+def downloads(monkeypatch):
+    """Serves `body` for every URL and counts the calls; set `error` to fail instead."""
+
+    class Server:
+        body = b"new"
+        error: FetchError | None = None
+        calls = 0
+
+        def __call__(self, url: str) -> bytes:
+            self.calls += 1
+            if self.error:
+                raise self.error
+            return self.body
+
+    server = Server()
+    monkeypatch.setattr(cache, "_download", server)
+    return server
+
+
+def age(path, seconds: float) -> None:
+    then = time.time() - seconds
+    os.utime(path, (then, then))
+
+
+def test_root_follows_the_environment(cache_root):
+    assert cache.root() == cache_root
+    assert Cache("x").dir == cache_root / "x"
+
+
+def test_fetch_stores_and_reuses(downloads):
+    store = Cache("x")
+    assert store.fetch("u", "a/b.json") == b"new"
+    downloads.body = b"newer"
+    assert store.fetch("u", "a/b.json") == b"new"  # max_age None: kept forever
+    assert downloads.calls == 1
+    assert not list(store.dir.rglob("*.part"))
+
+
+def test_stale_files_are_fetched_again(downloads):
+    store = Cache("x")
+    store.fetch("u", "k", max_age=60)
+    age(store.path("k"), 120)
+    downloads.body = b"newer"
+    assert store.fetch("u", "k", max_age=60) == b"newer"
+    assert store.fetch("u", "k", max_age=0) == b"newer"
+    assert downloads.calls == 3
+
+
+def test_unreachable_source_falls_back_to_the_cached_copy(downloads):
+    store = Cache("x")
+    store.fetch("u", "k")
+    downloads.error = FetchError("u", None, "no route")
+    with pytest.warns(UserWarning, match="cached copy"):
+        assert store.fetch("u", "k", max_age=0) == b"new"
+
+
+def test_http_errors_are_raised_even_with_a_cached_copy(downloads):
+    store = Cache("x")
+    store.fetch("u", "k")
+    downloads.error = FetchError("u", 500, "HTTP 500")
+    with pytest.raises(FetchError):
+        store.fetch("u", "k", max_age=0)
+
+
+def test_keys_stay_inside_the_source_folder():
+    with pytest.raises(ValueError, match="leaves"):
+        Cache("x").path("../y/k")
+
+
+def test_cli_lists_and_clears(downloads, capsys):
+    store = Cache("x")
+    store.fetch("u", "old")
+    store.fetch("u", "new")
+    age(store.path("old"), 3 * cache.DAY)
+    cache.main(["clear", "--older-than", "2d"])
+    assert "x: deleted 1 files" in capsys.readouterr().out
+    cache.main([])
+    assert "1 files" in capsys.readouterr().out
+    cache.main(["clear", "x", "missing"])
+    out = capsys.readouterr().out
+    assert "x: deleted 1 files" in out and "missing: nothing cached" in out

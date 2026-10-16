@@ -1,0 +1,5 @@
+{
+  "data-source-id": "fr-data-gouv",
+  "link": "https://www.data.gouv.fr",
+  "description": "data.gouv.fr: French national open data catalog with a REST API v2 and a tabular API, mostly under the Etalab open licence."
+}

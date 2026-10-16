@@ -1,0 +1,5 @@
+{
+  "data-source-id": "fr-insee",
+  "link": "https://portail-api.insee.fr",
+  "description": "INSEE: 150k+ French macroeconomic series, mostly monthly or quarterly, via api.insee.fr (Python wrapper: pynsee)."
+}

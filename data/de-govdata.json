@@ -1,0 +1,5 @@
+{
+  "data-source-id": "de-govdata",
+  "link": "https://www.govdata.de",
+  "description": "GovData: German national open data catalog (120k+ datasets from federal, state and municipal sources) with a standard CKAN search API."
+}

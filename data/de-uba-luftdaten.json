@@ -1,0 +1,5 @@
+{
+  "data-source-id": "de-uba-luftdaten",
+  "link": "https://www.umweltbundesamt.de/daten/luft/luftdaten",
+  "description": "Umweltbundesamt air data API v4: hourly PM10, NO2, O3, SO2 and CO measurements from federal and state networks since 2016. Current-year data is preliminary until June of the following year and may have gaps."
+}

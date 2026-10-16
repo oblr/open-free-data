@@ -177,7 +177,7 @@ def read(
         filled = ~np.isnan(values).all(axis=1)
         time, values = time[filled], values[filled]
     else:
-        time, values = sources.means(time, values, resolution, TZ)
+        time, values = sources.aggregate(time, values, resolution, TZ)
         filled = np.flatnonzero(~np.isnan(values).all(axis=1))
         span = slice(filled[0], filled[-1] + 1) if len(filled) else slice(0, 0)
         time, values = time[span], values[span]

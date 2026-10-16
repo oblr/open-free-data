@@ -10,7 +10,8 @@ The root is free-data/cache (git-ignored); $FREE_DATA_CACHE overrides it.
 A file is fetched again once it is older than the `max_age` the reader asks
 for: None keeps it forever (data that no longer changes), 0 always fetches.
 If the source can't be reached, or answers with a server error (5xx) or
-"too many requests" (429), and a cached copy exists, the copy is used with a
+"too many requests" (429), the download is tried again twice, after 2 and
+8 seconds. If it still fails and a cached copy exists, the copy is used with a
 warning, so readers keep working offline and through outages.
 
     python cache.py                 # size and file count per source
@@ -33,6 +34,7 @@ from pathlib import Path
 
 DEFAULT_ROOT = Path(__file__).with_name("cache")
 USER_AGENT = "free-data/0.1"
+RETRY_PAUSES = (2.0, 8.0)  # seconds before each new try after a temporary failure
 
 MINUTE = 60.0
 HOUR = 60 * MINUTE
@@ -74,7 +76,7 @@ class Cache:
         if target.exists() and (max_age is None or time.time() - target.stat().st_mtime < max_age):
             return target.read_bytes()
         try:
-            body = _download(url)
+            body = _download_with_retries(url)
         except FetchError as error:
             if error.transient and target.exists():
                 warnings.warn(f"{url} failed, using the cached copy: {error}", stacklevel=2)
@@ -93,6 +95,18 @@ class Cache:
         part = target.with_name(f"{target.name}.{os.getpid()}.{threading.get_ident()}.part")
         part.write_bytes(body)
         part.replace(target)
+
+
+def _download_with_retries(url: str) -> bytes:
+    """`_download`, tried again after a pause while the failure looks temporary."""
+    for pause in (*RETRY_PAUSES, None):
+        try:
+            return _download(url)
+        except FetchError as error:
+            if pause is None or not error.transient:
+                raise
+            time.sleep(pause)
+    raise AssertionError("unreachable")
 
 
 def _download(url: str) -> bytes:

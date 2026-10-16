@@ -22,11 +22,17 @@ Python 3.11 or newer; the only dependency is numpy.
     python eco2mix.py consommation taux_co2 --resolution day --start 2024-01-01
     python pegelonline.py --list rhein    # gauging stations, by name or water
     python pegelonline.py KÖLN/W KÖLN/Q --resolution native
+    python hubeau.py --list seine paris   # French river gauges
+    python hubeau.py F700000103/Q --start 2016-05-01 --end 2016-06-30
+    python dwd.py --list potsdam          # DWD weather stations
+    python dwd.py 03987/TT_TU 03987/R1 --resolution day --start 2025-07-01
     python cache.py                       # what is cached, per source
     python cache.py clear de-smard --older-than 30d
 
 The browser lists every source in `data/`; those with a plugin can be
-plotted, also several sources side by side, and downloaded as CSV. It binds
+plotted, also several sources side by side (one axis per unit), and
+downloaded as CSV. A source's first list of datasets can take up to a
+minute (Hub'eau's station list); it is cached for a day. The browser binds
 to 127.0.0.1 and has no authentication.
 
 ## Layout
@@ -40,6 +46,8 @@ to 127.0.0.1 and has no authentication.
 | `smard.py` | Reader for SMARD, the Bundesnetzagentur's electricity market data. |
 | `eco2mix.py` | Reader for RTE éCO2mix, France's electricity mix (via ODRÉ). |
 | `pegelonline.py` | Reader for PEGELONLINE, the gauges of the German federal waterways (last 31 days only). |
+| `hubeau.py` | Reader for Hub'eau, the river gauges of France (daily flows for decades, the rest 30 days). |
+| `dwd.py` | Reader for the DWD's hourly weather observations at German stations. |
 | `browser.py`, `browser.html` | The local web page and its JSON/CSV API. |
 
 The readers' command lines take inclusive dates in the source's timezone
@@ -63,7 +71,7 @@ source's own timezone.
 Files live in `cache/` next to the code; set `FREE_DATA_CACHE` to put them
 elsewhere. A file is fetched again once it is older than its reader's
 `max_age`. If the source can't be reached or answers with a server error,
-the cached copy is used with a warning.
+the download is tried twice more, then the cached copy is used with a warning.
 
 ## Tests
 

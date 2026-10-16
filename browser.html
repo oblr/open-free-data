@@ -55,6 +55,9 @@ button:disabled { opacity: .55; cursor: default; }
 .row.unplugged > .name { color: var(--muted); }
 .row .tag { flex: none; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
 .row a.tag { color: var(--accent); text-decoration: none; }
+.row .tag.failed { color: var(--error); border-color: currentColor; }
+.row button.tag { background: none; cursor: pointer; }
+.more { color: var(--muted); font-size: 12px; padding: 8px 4px; }
 .icon { flex: none; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--muted);
   display: grid; place-items: center; font-size: 13px; text-decoration: none; line-height: 1; }
 .icon:hover, .icon[aria-expanded="true"] { color: var(--accent); background: var(--accent-soft); }
@@ -149,6 +152,8 @@ const css = name => getComputedStyle(document.documentElement).getPropertyValue(
 const colors = () => [1, 2, 3, 4, 5, 6, 7, 8].map(i => css(`--s${i}`));
 const fmt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 const SEP = " / ";  // nests groups, see sources.Dataset.group
+const MAX_ROWS = 500;            // tree rows drawn at once; the rest is counted, not drawn
+const BIG_SELECTION = 50;         // ticking more datasets than this at once asks first
 const CARET = '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1.5 7 5 3 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 let sources = [];                 // from /api/sources
@@ -166,26 +171,30 @@ const pathOf = d => [sourceById(d.source).title, ...(d.group ? d.group.split(SEP
 
 // ---- tree model: country > source > group > subgroup ... > dataset ----
 
-function node(key, kind, label, extra = {}) { return { key, kind, label, children: [], leaves: [], ...extra }; }
+function node(key, kind, label, extra = {}) { return { key, kind, label, children: [], index: new Map(), leaves: [], text: null, ...extra }; }
 
 function buildTree() {
   const root = node("root", "root", "");
   const child = (parent, key, kind, label, extra) => {
-    let found = parent.children.find(c => c.key === key);
-    if (!found) parent.children.push(found = node(key, kind, label, extra));
+    let found = parent.index.get(key);
+    if (!found) { found = node(key, kind, label, extra); parent.children.push(found); parent.index.set(key, found); }
     return found;
   };
+  const bySource = new Map();
+  for (const d of datasets.values()) (bySource.get(d.source) ?? bySource.set(d.source, []).get(d.source)).push(d);
   for (const s of sources) {  // plugged-in sources first, as the server sorts them
     const country = child(root, `c:${s.country}`, "country", s.country);
     const src = child(country, `s:${s.id}`, s.plugin ? "source" : "unplugged", s.title, { source: s });
-    if (!s.plugin) continue;
-    for (const d of [...datasets.values()].filter(d => d.source === s.id)) {
+    if (!s.plugin) { src.text = `${s.country} ${s.id} ${s.description}`.toLowerCase(); continue; }
+    for (const d of bySource.get(s.id) ?? []) {
       let parent = src, path = "";
       for (const part of d.group ? d.group.split(SEP) : []) {
         path = path ? path + SEP + part : part;
         parent = child(parent, `g:${s.id}:${path}`, "group", part);
       }
-      parent.children.push(node(keyOf(s.id, d.id), "dataset", d.label, { dataset: d }));
+      const leaf = node(keyOf(s.id, d.id), "dataset", d.label, { dataset: d });
+      leaf.text = `${s.country} ${s.title} ${s.id} ${d.group} ${d.label} ${d.id} ${d.unit} ${d.description}`.toLowerCase();
+      parent.children.push(leaf);
     }
   }
   (function collect(n) {  // every node knows the datasets below it
@@ -196,24 +205,16 @@ function buildTree() {
   return root;
 }
 
-function searchText(n) {
-  if (n.kind === "dataset") {
-    const d = n.dataset, s = sourceById(d.source);
-    return `${s.country} ${s.title} ${s.id} ${d.group} ${d.label} ${d.id} ${d.unit} ${d.description}`.toLowerCase();
-  }
-  if (n.kind === "unplugged") return `${n.source.country} ${n.source.id} ${n.source.description}`.toLowerCase();
-  return null;
-}
-
-// The nodes to show: all of them, or those on a path to a match.
+// The nodes to show: all of them, or those that match and the path to them.
 function visibleKeys(words) {
   if (!words.length) return null;
   const keep = new Set();
-  (function walk(n, trail) {
-    const text = searchText(n);
-    if (text !== null && words.every(w => text.includes(w))) for (const k of [...trail, n.key]) keep.add(k);
-    for (const c of n.children) walk(c, [...trail, n.key]);
-  })(tree, []);
+  (function walk(n) {
+    let hit = n.text !== null && words.every(w => n.text.includes(w));
+    for (const c of n.children) if (walk(c)) hit = true;
+    if (hit) keep.add(n.key);
+    return hit;
+  })(tree);
   return keep;
 }
 
@@ -234,16 +235,21 @@ function renderTree() {
   const list = $("tree");
   list.replaceChildren();
   const rows = [];
+  let hidden = 0;  // rows past MAX_ROWS: counted, not drawn
   (function walk(n, depth) {
     for (const c of n.children) {
       if (visible && !visible.has(c.key)) continue;
-      rows.push(row(c, depth, words));
-      if (c.kind === "dataset" && infoOpen.has(c.key)) rows.push(info(c.dataset, depth));
+      if (rows.length < MAX_ROWS) {
+        rows.push(row(c, depth, words));
+        if (c.kind === "dataset" && infoOpen.has(c.key)) rows.push(info(c.dataset, depth));
+      } else hidden++;
       const open = visible ? true : expanded.has(c.key);
       if (open && c.children.length) walk(c, depth + 1);
     }
   })(tree, 0);
   list.append(...rows);
+  if (hidden) list.append(el("li", { className: "more",
+    textContent: `${fmt.format(hidden)} more rows not shown: narrow the search or collapse some groups.` }));
   if (!rows.length) list.append(el("li", { className: "empty", textContent: "Nothing matches." }));
 }
 
@@ -269,6 +275,12 @@ function row(n, depth, words) {
     const box = el("input", { type: "checkbox", checked: chosen === n.leaves.length, indeterminate: chosen > 0 && chosen < n.leaves.length,
       title: n.kind === "dataset" ? "" : `Select all ${n.leaves.length} datasets below` });
     box.onchange = () => {
+      const adding = n.leaves.filter(k => !selected.has(k)).length;
+      if (box.checked && adding > BIG_SELECTION &&
+          !confirm(`Select ${fmt.format(adding)} more datasets? Loading this many series at once can take a long time.`)) {
+        box.checked = false;
+        return;
+      }
       for (const k of n.leaves) box.checked ? selected.add(k) : selected.delete(k);
       if (box.checked && hasKids) expanded.add(n.key);
       renderTree(); renderSelection();
@@ -291,6 +303,12 @@ function row(n, depth, words) {
     more.setAttribute("aria-expanded", infoOpen.has(n.key));
     li.append(more);
     if (d.link) li.append(sourceLink(d, "icon"));
+  }
+  else if (n.kind === "source" && n.source.state === "loading") {
+    li.append(el("span", { className: "tag", textContent: "loading…", title: "Fetching the list of datasets" }));
+  } else if (n.kind === "source" && n.source.state === "failed") {
+    li.append(el("button", { className: "tag failed", textContent: "failed · retry", title: n.source.error,
+      onclick: () => loadDatasets(n.source) }));
   }
   else if (n.kind === "unplugged") {
     li.append(el("span", { className: "tag", textContent: "no plugin" }));
@@ -486,7 +504,8 @@ function restore() {  // selection, options and dates from the address, so a vie
   return selected.size > 0;
 }
 
-$("search").oninput = renderTree;
+let searchTimer = null;
+$("search").oninput = () => { clearTimeout(searchTimer); searchTimer = setTimeout(renderTree, 120); };
 $("expand").onclick = () => setExpanded(true);
 $("collapse").onclick = () => setExpanded(false);
 $("clear").onclick = () => { selected.clear(); renderTree(); renderSelection(); };
@@ -502,34 +521,59 @@ const today = new Date();
 $("end").value = today.toISOString().slice(0, 10);
 $("start").value = new Date(today - 30 * 864e5).toISOString().slice(0, 10);
 
+function subtitle() {
+  const plugged = sources.filter(s => s.plugin);
+  const loading = plugged.filter(s => s.state === "loading").length;
+  $("subtitle").textContent = `${plugged.length} of ${sources.length} sources plugged in · ${fmt.format(datasets.size)} datasets`
+    + (loading ? ` · loading ${loading} more…` : "");
+}
+
+let rebuildQueued = false;
+function rebuild() {  // once per frame, however many sources arrive in it
+  if (rebuildQueued) return;
+  rebuildQueued = true;
+  requestAnimationFrame(() => { rebuildQueued = false; tree = buildTree(); renderTree(); subtitle(); });
+}
+
+async function loadDatasets(s) {  // one source's datasets; a failure leaves the others alone
+  s.state = "loading";
+  rebuild();
+  try {
+    const response = await fetch(`/api/sources/${encodeURIComponent(s.id)}/datasets`);
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || response.statusText);
+    for (const d of body) datasets.set(keyOf(s.id, d.id), { ...d, source: s.id });
+    s.state = "ready";
+  } catch (error) {
+    s.state = "failed";
+    s.error = error.message;
+  }
+  rebuild();
+}
+
 (async () => {
   try {
     sources = await (await fetch("/api/sources")).json();
-    // All sources at once; one that fails (its server down, say) is left out rather than breaking the page.
-    const failed = [];
-    await Promise.all(sources.filter(s => s.plugin).map(async s => {
-      try {
-        const response = await fetch(`/api/sources/${encodeURIComponent(s.id)}/datasets`);
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.error);
-        for (const d of body) datasets.set(keyOf(s.id, d.id), { ...d, source: s.id });
-      } catch (error) {
-        failed.push(`${s.title}: ${error.message}`);
-      }
-    }));
-    tree = buildTree();
-    const plugged = sources.filter(s => s.plugin).length;
-    $("subtitle").textContent = `${plugged} of ${sources.length} sources plugged in · ${datasets.size} datasets`;
-    for (const s of sources.filter(s => s.plugin)) { expanded.add(`c:${s.country}`); expanded.add(`s:${s.id}`); }  // start one level into each plugged-in source
-    const restored = restore();
-    revealSelection();
-    renderTree();
-    renderSelection();
-    if (failed.length) setStatus(`Could not load ${failed.join("; ")}`, true);
-    if (restored) load();
   } catch (error) {
     setStatus("Could not reach the local server.", true);
+    return;
   }
+  const plugged = sources.filter(s => s.plugin);
+  for (const s of plugged) { expanded.add(`c:${s.country}`); expanded.add(`s:${s.id}`); }  // start one level into each plugged-in source
+  tree = buildTree();
+  renderTree();
+  setStatus("Loading the lists of datasets; a source's first list can take a while.");
+  await Promise.all(plugged.map(loadDatasets));  // each shows up in the tree as it arrives
+  const failed = plugged.filter(s => s.state === "failed");
+  const restored = restore();
+  revealSelection();
+  tree = buildTree();
+  renderTree();
+  renderSelection();
+  subtitle();
+  if (failed.length) setStatus(`Could not load ${failed.map(s => `${s.title} (${s.error})`).join("; ")}. Retry from the tree.`, true);
+  else setStatus("Open a source on the left and tick datasets, or a whole group, then Load.");
+  if (restored) load();
 })();
 </script>
 </body>

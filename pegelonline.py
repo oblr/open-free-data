@@ -112,7 +112,7 @@ def read(
     time = combined.time.astype(np.int64)
     values = combined.values
     if resolution != "native":
-        time, values = sources.means(time, values, resolution, TZ)
+        time, values = sources.aggregate(time, values, resolution, TZ)
     return Table(tuple(series), time.astype("datetime64[ms]"), values)
 
 

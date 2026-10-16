@@ -62,7 +62,7 @@ def test_catalog_lists_every_source_plugged_in_first():
     assert smard["plugin"] and smard["country"] == "Germany"
 
 
-def test_every_plugin_has_unique_dataset_ids(pegelonline_stations):
+def test_every_plugin_has_unique_dataset_ids(pegelonline_stations, hubeau_files, dwd_files):
     for plugin in sources.discover().values():
         ids = [d.id for d in plugin.datasets()]
         assert len(ids) == len(set(ids)), plugin.id
@@ -74,17 +74,24 @@ def test_means_per_local_day_across_the_clock_change():
     hours = np.arange(sources.epoch_ms("2024-03-30T22:00", zone), sources.epoch_ms("2024-04-01T02:00", zone), 3_600_000)
     values = np.ones((len(hours), 1))
     values[0] = np.nan
-    labels, means = sources.means(hours, values, "day", zone)
+    labels, means = sources.aggregate(hours, values, "day", zone)
     assert labels.tolist() == [sources.epoch_ms(d, zone) for d in ("2024-03-30", "2024-03-31", "2024-04-01")]
     assert means[:, 0].tolist() == [1.0, 1.0, 1.0]  # the NaN is skipped; the 23-hour day is one bin
 
 
 def test_means_per_hour_and_empty_input():
     time = np.array([0, 900_000, 3_600_000], np.int64)
-    labels, means = sources.means(time, np.array([[1.0], [3.0], [np.nan]]), "hour", "UTC")
+    labels, means = sources.aggregate(time, np.array([[1.0], [3.0], [np.nan]]), "hour", "UTC")
     assert labels.tolist() == [0, 3_600_000]
     assert means[0, 0] == 2.0 and np.isnan(means[1, 0])
     empty = np.array([], np.int64)
-    assert sources.means(empty, np.empty((0, 1)), "day", "UTC")[0].size == 0
+    assert sources.aggregate(empty, np.empty((0, 1)), "day", "UTC")[0].size == 0
     with pytest.raises(ValueError):
-        sources.means(time, np.ones((3, 1)), "week", "UTC")
+        sources.aggregate(time, np.ones((3, 1)), "week", "UTC")
+
+
+def test_daily_sums():
+    time = np.array([0, 3_600_000, 86_400_000], np.int64)
+    labels, sums = sources.aggregate(time, np.array([[1.0], [2.0], [np.nan]]), "day", "UTC", how="sum")
+    assert labels.tolist() == [0, 86_400_000]
+    assert sums[0, 0] == 3.0 and np.isnan(sums[1, 0])

@@ -226,15 +226,19 @@ def _zone(zone: str | tzinfo) -> tzinfo:
     return ZoneInfo(zone) if isinstance(zone, str) else zone
 
 
-def means(time: np.ndarray, values: np.ndarray, resolution: str, zone: str | tzinfo) -> tuple[np.ndarray, np.ndarray]:
-    """Means per hour or per day in `zone`, labelled with its start; NaN where it has no value.
+def aggregate(
+    time: np.ndarray, values: np.ndarray, resolution: str, zone: str | tzinfo, how: str = "mean"
+) -> tuple[np.ndarray, np.ndarray]:
+    """Means (or sums) per hour or per day in `zone`, labelled with its start; NaN where it has no value.
 
     `time` is epoch ms (UTC), sorted; `values` has one column per series.
     Hours are UTC hours, which are local hours in any zone a whole number
     of hours off UTC.
     """
     if resolution not in ("hour", "day"):
-        raise ValueError(f"means are per hour or day, not {resolution!r}")
+        raise ValueError(f"aggregates are per hour or day, not {resolution!r}")
+    if how not in ("mean", "sum"):
+        raise ValueError(f"how is 'mean' or 'sum', not {how!r}")
     if not len(time):
         return time, values
     if resolution == "hour":
@@ -251,5 +255,7 @@ def means(time: np.ndarray, values: np.ndarray, resolution: str, zone: str | tzi
     counts = np.zeros((len(labels), values.shape[1]))
     np.add.at(sums, group, np.where(present, values, 0.0))
     np.add.at(counts, group, present)
+    if how == "sum":
+        return labels, np.where(counts > 0, sums, np.nan)
     with np.errstate(invalid="ignore"):
         return labels, np.where(counts > 0, sums / counts, np.nan)

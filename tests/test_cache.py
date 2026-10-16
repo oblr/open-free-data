@@ -107,3 +107,32 @@ def test_cli_lists_and_clears(downloads, capsys):
     cache.main(["clear", "x", "missing"])
     out = capsys.readouterr().out
     assert "x: deleted 1 files" in out and "missing: nothing cached" in out
+
+
+def test_temporary_failures_are_tried_again(downloads, monkeypatch):
+    failures = [FetchError("u", 503, "HTTP 503"), FetchError("u", None, "timeout")]
+    real = downloads.__class__.__call__
+
+    def flaky(self, url):
+        if failures:
+            self.calls += 1
+            raise failures.pop(0)
+        return real(self, url)
+
+    monkeypatch.setattr(downloads.__class__, "__call__", flaky)
+    assert Cache("x").fetch("u", "k") == b"new"
+    assert downloads.calls == 3
+
+
+def test_client_errors_are_not_tried_again(downloads):
+    downloads.error = FetchError("u", 404, "HTTP 404")
+    with pytest.raises(FetchError):
+        Cache("x").fetch("u", "k")
+    assert downloads.calls == 1
+
+
+def test_retries_give_up_after_three_tries(downloads):
+    downloads.error = FetchError("u", 503, "HTTP 503")
+    with pytest.raises(FetchError):
+        Cache("x").fetch("u", "k")
+    assert downloads.calls == 3

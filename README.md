@@ -4,6 +4,8 @@ Free public time series from German and French sources: a catalog of
 sources, plugins that read them into one table format, a local file cache,
 and a browser page to search, plot and export them.
 
+![The browser: German and French solar generation next to the temperature in Potsdam](docs/screenshot.png)
+
 ## Setup
 
     python -m venv .venv
@@ -73,8 +75,12 @@ elsewhere. A file is fetched again once it is older than its reader's
 `max_age`. If the source can't be reached or answers with a server error,
 the download is tried twice more, then the cached copy is used with a warning.
 
-## Tests
+## Tests and linting
 
+    .venv/bin/pip install pytest ruff
     .venv/bin/python -m pytest
+    .venv/bin/ruff check .
 
-The tests run offline against a temporary cache; any download attempt fails them.
+The tests run offline against a temporary cache; any download attempt fails
+them. GitHub Actions (`.github/workflows/tests.yml`) runs ruff, and the tests
+on Python 3.11 and 3.14, on every push and pull request.

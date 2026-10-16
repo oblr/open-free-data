@@ -130,7 +130,7 @@ def read(
         station, variable = _split(name)
         wanted.setdefault((station, VARIABLES[variable].group), []).append(variable)
     with ThreadPoolExecutor(DOWNLOADS) as pool:
-        loaded = dict(zip(wanted, pool.map(lambda key: _load(store, *key, wanted[key], lo, hi), wanted)))
+        loaded = dict(zip(wanted, pool.map(lambda key: _load(store, *key, wanted[key], lo, hi), wanted), strict=True))
 
     columns = []
     for name in series:

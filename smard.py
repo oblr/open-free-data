@@ -41,8 +41,8 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from cache import DAY, HOUR, MINUTE, Cache, FetchError
 import sources
+from cache import DAY, HOUR, MINUTE, Cache, FetchError
 from sources import Table, Time, combine
 
 BASE = "https://www.smard.de/app/chart_data"

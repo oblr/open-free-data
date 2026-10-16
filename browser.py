@@ -20,7 +20,7 @@ import csv
 import io
 import json
 from dataclasses import asdict, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import cache
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -116,7 +116,7 @@ def to_csv(columns: list[dict], table: sources.Table) -> bytes:
     writer = csv.writer(out)
     writer.writerow(["timestamp_utc", *(f"{c['key']} {c['group']} {c['label']} [{c['unit']}]" for c in columns)])
     for t, row in zip(table.time.astype(np.int64), table.values, strict=True):
-        stamp = datetime.fromtimestamp(t / 1000, timezone.utc).isoformat()
+        stamp = datetime.fromtimestamp(t / 1000, UTC).isoformat()
         writer.writerow([stamp, *("" if np.isnan(v) else repr(float(v)) for v in row)])
     return out.getvalue().encode()
 

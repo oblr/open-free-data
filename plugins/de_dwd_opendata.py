@@ -22,6 +22,7 @@ class Dwd(Plugin):
         rows = []
         for group in dict.fromkeys(v.group for v in dwd.VARIABLES.values()):
             for station in sorted(dwd.reporting(group), key=lambda s: s["name"]):
+                since = f"{station['from'][:4]}-{station['from'][4:6]}-{station['from'][6:]}"
                 for key, variable in dwd.VARIABLES.items():
                     if variable.group != group:
                         continue
@@ -32,7 +33,7 @@ class Dwd(Plugin):
                         unit=variable.unit,
                         description=(f"{variable.name} ({key}) at {station['name']}, {station['state']}, "
                                      f"{station['height']:g} m, DWD station {station['id']}; "
-                                     f"hourly since {station['from'][:4]}-{station['from'][4:6]}-{station['from'][6:]}."),
+                                     f"hourly since {since}."),
                         link=f"{dwd.BASE}/{group}/",
                     ))
         return rows

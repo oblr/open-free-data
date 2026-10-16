@@ -13,7 +13,6 @@ from plugins.de_pegelonline import PLUGIN
 from sources import epoch_ms
 
 
-
 def ms(text: str) -> int:
     return epoch_ms(text, pegelonline.TZ)
 

@@ -7,8 +7,19 @@ dependencies = ["numpy>=1.24"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
+lint = ["ruff"]
 
 [tool.pytest.ini_options]
 pythonpath = [".", "tests"]
 testpaths = ["tests"]
 filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"  # also reports syntax newer than the oldest supported Python
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["browser", "cache", "conftest", "dwd", "eco2mix", "hubeau", "pegelonline", "plugins", "smard", "sources"]

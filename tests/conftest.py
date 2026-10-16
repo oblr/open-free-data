@@ -154,7 +154,8 @@ def dwd_files(cache_root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(dwd, "_now", lambda: 1_704_888_000_000)
     folder = cache_root / dwd.SOURCE
     header = ("Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland Abgabe\r\n"
-              "----------- --------- --------- ------------- --------- --------- ---------------- ---------- ------\r\n")
+              "----------- --------- --------- ------------- --------- --------- "
+              "---------------- ---------- ------\r\n")
     for group, code in DWD_GROUPS.items():
         (folder / group / "recent").mkdir(parents=True)
         (folder / group / "historical").mkdir(parents=True)

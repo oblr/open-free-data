@@ -161,7 +161,8 @@ def main(argv: list[str] | None = None) -> None:
                         f"(default: {sources.CLI_DAYS} days before the end)")
     parser.add_argument("--end", help="ISO date or time, inclusive; a bare date means the whole day (default: now)")
     parser.add_argument("--out", help="CSV file (default: stdout)")
-    parser.add_argument("--list", metavar="SEARCH", nargs="?", const="", help="show the stations, optionally only matching ones")
+    parser.add_argument("--list", metavar="SEARCH", nargs="?", const="",
+                        help="show the stations, optionally only matching ones")
     args = parser.parse_args(argv)
 
     if args.list is not None or not args.series:

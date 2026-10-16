@@ -13,7 +13,6 @@ import pytest
 import browser
 import cache
 import eco2mix
-from conftest import put
 from sources import epoch_ms
 
 HEADER = "perimetre;nature;date;heure;date_heure;consommation;eolien;ech_comm_allemagne_belgique"

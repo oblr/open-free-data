@@ -26,7 +26,7 @@ import json
 import pkgutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import UTC, datetime, timedelta, tzinfo
 from functools import cache
 from pathlib import Path
 from typing import TextIO
@@ -210,7 +210,7 @@ def epoch_ms(value: Time, zone: str | tzinfo) -> int | None:
     when = datetime.fromisoformat(value) if isinstance(value, str) else value
     if when.tzinfo is None:
         when = when.replace(tzinfo=_zone(zone))
-    return int(when.astimezone(timezone.utc).timestamp() * 1000)
+    return int(when.astimezone(UTC).timestamp() * 1000)
 
 
 def write_csv(table: Table, out: TextIO, zone: str | tzinfo) -> None:

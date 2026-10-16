@@ -41,7 +41,7 @@ import json
 import sys
 import time as clock
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
@@ -146,7 +146,8 @@ def _realtime(store: Cache, station: str, kind: str) -> tuple[np.ndarray, np.nda
                                   REALTIME_MAX_AGE))
     rows = body["data"]
     time = np.array([_utc_ms(row["date_obs"]) for row in rows], np.int64)
-    values = np.array([np.nan if row["resultat_obs"] is None else row["resultat_obs"] for row in rows]) / SERIES[kind][2]
+    values = np.array([np.nan if row["resultat_obs"] is None else row["resultat_obs"] for row in rows])
+    values /= SERIES[kind][2]
     order = np.argsort(time, kind="stable")  # Hub'eau sends the newest first
     return time[order], values[order]
 
@@ -177,14 +178,14 @@ def _daily(store: Cache, station: str, decade: int, now: int) -> tuple[np.ndarra
     max_age = DAILY_MAX_AGE if decade + 10 > _year(now) else OLD_DAILY_MAX_AGE
     body = json.loads(store.fetch(f"{BASE}/obs_elab?{urlencode(query)}", f"{station}/QmnJ/{decade}.json", max_age))
     rows = sorted(body["data"], key=lambda row: row["date_obs_elab"])
-    days = np.array([sources.epoch_ms(datetime.combine(date.fromisoformat(row["date_obs_elab"]), datetime.min.time()), TZ)
-                     for row in rows], np.int64)
+    midnights = (datetime.combine(date.fromisoformat(row["date_obs_elab"]), datetime.min.time()) for row in rows)
+    days = np.array([sources.epoch_ms(midnight, TZ) for midnight in midnights], np.int64)
     flows = np.array([np.nan if row["resultat_obs_elab"] is None else row["resultat_obs_elab"] for row in rows])
     return days, flows / SERIES["Q"][2]
 
 
 def _utc_ms(stamp: str) -> int:
-    return int(datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone(timezone.utc).timestamp() * 1000)
+    return int(datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone(UTC).timestamp() * 1000)
 
 
 def _year(ms: int) -> int:
@@ -203,7 +204,8 @@ def main(argv: list[str] | None = None) -> None:
                         f"(default: {sources.CLI_DAYS} days before the end)")
     parser.add_argument("--end", help="ISO date or time, inclusive; a bare date means the whole day (default: now)")
     parser.add_argument("--out", help="CSV file (default: stdout)")
-    parser.add_argument("--list", metavar="SEARCH", nargs="?", const="", help="show the stations, optionally only matching ones")
+    parser.add_argument("--list", metavar="SEARCH", nargs="?", const="",
+                        help="show the stations, optionally only matching ones")
     args = parser.parse_args(argv)
 
     if args.list is not None or not args.series:

@@ -25,6 +25,10 @@ How long a file stays fresh depends on how much it can still change:
     older chunks               forever
 
     python smard.py 410 --start 2024-01-01 --end 2024-12-31 --out load.csv
+
+On the command line the end date is inclusive (a bare date means the whole
+day) and the start defaults to 30 days before the end, since the full
+history of one hourly series is several hundred files.
 """
 
 from __future__ import annotations
@@ -32,15 +36,14 @@ from __future__ import annotations
 import argparse
 import sys
 import time as clock
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import TextIO
 from zoneinfo import ZoneInfo
 
 import numpy as np
 
 from cache import DAY, HOUR, MINUTE, Cache, FetchError
-from sources import Table, combine
+import sources
+from sources import Table, Time, combine
 
 BASE = "https://www.smard.de/app/chart_data"
 SOURCE = "de-smard"  # the id in data/ and the cache folder
@@ -87,9 +90,6 @@ FILTERS: dict[int, str] = {
     254: "price_france",
 }
 
-Time = str | datetime | np.datetime64 | None
-
-
 class SmardError(RuntimeError):
     pass
 
@@ -111,7 +111,9 @@ def read(
     if resolution not in RESOLUTIONS:
         raise ValueError(f"resolution must be one of {RESOLUTIONS}, got {resolution!r}")
     store = Cache(SOURCE, cache)
-    lo, hi = _epoch_ms(start), _epoch_ms(end)
+    lo, hi = sources.epoch_ms(start, TZ), sources.epoch_ms(end, TZ)
+    if lo is not None and hi is not None and lo > hi:
+        raise ValueError(f"start {start} is after end {end}")
 
     chunks = _chunks(store, filter, region, resolution)
     if not chunks:
@@ -152,25 +154,6 @@ def read_frame(
     return combine([read(f, region, resolution, start, end, cache) for f in filters])
 
 
-def write_csv(table: Table, out: TextIO) -> None:
-    """The table as CSV with Berlin-time ISO timestamps."""
-    out.write(",".join(("timestamp", *table.columns)) + "\n")
-    for t, row in zip(table.time.astype(np.int64), table.values, strict=True):
-        stamp = datetime.fromtimestamp(t / 1000, TZ).isoformat()
-        out.write(",".join((stamp, *("" if np.isnan(v) else repr(float(v)) for v in row))) + "\n")
-
-
-def _epoch_ms(value: Time) -> int | None:
-    if value is None:
-        return None
-    if isinstance(value, np.datetime64):
-        return int(value.astype("datetime64[ms]").astype(np.int64))  # numpy times are UTC
-    moment = datetime.fromisoformat(value) if isinstance(value, str) else value
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=TZ)
-    return int(moment.astimezone(timezone.utc).timestamp() * 1000)
-
-
 def _chunks(store: Cache, filter: int, region: str, resolution: str) -> list[int]:
     key = f"{filter}/{region}/{resolution}/index_{resolution}.json"
     data = _get(store, f"{BASE}/{filter}/{region}/index_{resolution}.json", key, INDEX_MAX_AGE)
@@ -205,8 +188,9 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("filters", nargs="*", type=int, help="filter ids, see --list")
     parser.add_argument("--region", default="DE", choices=REGIONS)
     parser.add_argument("--resolution", default="hour", choices=RESOLUTIONS)
-    parser.add_argument("--start", help="ISO date or time, Berlin time unless an offset is given")
-    parser.add_argument("--end", help="ISO date or time, inclusive")
+    parser.add_argument("--start", help=f"ISO date or time, Berlin time unless an offset is given "
+                        f"(default: {sources.CLI_DAYS} days before the end)")
+    parser.add_argument("--end", help="ISO date or time, inclusive; a bare date means the whole day (default: now)")
     parser.add_argument("--out", help="CSV file (default: stdout)")
     parser.add_argument("--list", action="store_true", help="show the known filter ids")
     args = parser.parse_args(argv)
@@ -215,12 +199,16 @@ def main(argv: list[str] | None = None) -> None:
         for key, name in FILTERS.items():
             print(f"{key:>5}  {name}")
         return
-    table = read_frame(args.filters, args.region, args.resolution, args.start, args.end)
+    try:
+        start, end = sources.span(args.start, args.end, TZ)
+        table = read_frame(args.filters, args.region, args.resolution, start, end)
+    except (ValueError, SmardError) as error:
+        parser.error(str(error))
     if args.out:
         with open(args.out, "w") as out:
-            write_csv(table, out)
+            sources.write_csv(table, out, TZ)
     else:
-        write_csv(table, sys.stdout)
+        sources.write_csv(table, sys.stdout, TZ)
 
 
 if __name__ == "__main__":

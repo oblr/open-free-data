@@ -9,8 +9,9 @@ The root is free-data/cache (git-ignored); $FREE_DATA_CACHE overrides it.
 
 A file is fetched again once it is older than the `max_age` the reader asks
 for: None keeps it forever (data that no longer changes), 0 always fetches.
-If a fetch fails and a cached copy exists, the copy is used with a warning,
-so readers keep working offline.
+If the source can't be reached, or answers with a server error (5xx) or
+"too many requests" (429), and a cached copy exists, the copy is used with a
+warning, so readers keep working offline and through outages.
 
     python cache.py                 # size and file count per source
     python cache.py clear de-smard  # delete one source's files
@@ -44,6 +45,11 @@ class FetchError(RuntimeError):
         self.url = url
         self.status = status  # HTTP status, None when the server wasn't reached
 
+    @property
+    def transient(self) -> bool:
+        """Whether the source may well answer later: unreachable, overloaded or failing."""
+        return self.status is None or self.status == 429 or self.status >= 500
+
 
 def root() -> Path:
     return Path(os.environ.get("FREE_DATA_CACHE") or DEFAULT_ROOT)
@@ -70,8 +76,8 @@ class Cache:
         try:
             body = _download(url)
         except FetchError as error:
-            if error.status is None and target.exists():
-                warnings.warn(f"{url} not reachable, using the cached copy: {error}", stacklevel=2)
+            if error.transient and target.exists():
+                warnings.warn(f"{url} failed, using the cached copy: {error}", stacklevel=2)
                 return target.read_bytes()
             raise
         self._write(target, body)

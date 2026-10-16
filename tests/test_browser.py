@@ -35,6 +35,7 @@ def test_moment_keeps_an_explicit_offset_and_rejects_junk():
         ({"d": ["de-smard:nope"]}, "no dataset"),
         ({"d": ["zz-none:1"]}, "no plugin"),
         ({"d": ["de-smard:410"], "de-smard.region": ["Mars"]}, "region must be one of"),
+        ({"d": ["de-smard:410"], "start": ["2024-01-02"], "end": ["2024-01-01"]}, "after the end"),
     ],
 )
 def test_bad_requests(query, message):

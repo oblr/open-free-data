@@ -66,12 +66,28 @@ def test_unreachable_source_falls_back_to_the_cached_copy(downloads):
         assert store.fetch("u", "k", max_age=0) == b"new"
 
 
-def test_http_errors_are_raised_even_with_a_cached_copy(downloads):
+@pytest.mark.parametrize("status", [429, 500, 503])
+def test_server_trouble_falls_back_to_the_cached_copy(downloads, status):
     store = Cache("x")
     store.fetch("u", "k")
-    downloads.error = FetchError("u", 500, "HTTP 500")
+    downloads.error = FetchError("u", status, f"HTTP {status}")
+    with pytest.warns(UserWarning, match="cached copy"):
+        assert store.fetch("u", "k", max_age=0) == b"new"
+
+
+@pytest.mark.parametrize("status", [400, 403, 404])
+def test_client_errors_are_raised_even_with_a_cached_copy(downloads, status):
+    store = Cache("x")
+    store.fetch("u", "k")
+    downloads.error = FetchError("u", status, f"HTTP {status}")
     with pytest.raises(FetchError):
         store.fetch("u", "k", max_age=0)
+
+
+def test_server_trouble_without_a_cached_copy_is_raised(downloads):
+    downloads.error = FetchError("u", 503, "HTTP 503")
+    with pytest.raises(FetchError):
+        Cache("x").fetch("u", "k")
 
 
 def test_keys_stay_inside_the_source_folder():

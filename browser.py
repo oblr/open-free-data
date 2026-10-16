@@ -20,13 +20,12 @@ import csv
 import io
 import json
 from dataclasses import asdict, replace
-from datetime import datetime, time, timezone
+from datetime import datetime, timezone
 from functools import cache
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
-from zoneinfo import ZoneInfo
 
 import numpy as np
 
@@ -66,15 +65,10 @@ def source_list() -> list[dict]:
 
 def moment(text: str | None, zone: str, end: bool) -> datetime | None:
     """A date or date-time from the page; without an offset it is in the source's zone."""
-    if not text:
-        return None
     try:
-        value = datetime.fromisoformat(text)
+        return sources.moment(text, zone, end)
     except ValueError as error:
-        raise RequestError(f"not a date: {text!r}") from error
-    if len(text) == 10 and end:
-        value = datetime.combine(value.date(), time.max)  # a bare end date means the whole day
-    return value if value.tzinfo else value.replace(tzinfo=ZoneInfo(zone))
+        raise RequestError(str(error)) from error
 
 
 def series(query: dict[str, list[str]]) -> tuple[list[dict], sources.Table, np.ndarray]:
@@ -102,6 +96,8 @@ def series(query: dict[str, list[str]]) -> tuple[list[dict], sources.Table, np.n
             raise RequestError(str(error)) from error
         start = moment(query.get("start", [None])[0], p.timezone, end=False)
         end = moment(query.get("end", [None])[0], p.timezone, end=True)
+        if start and end and start > end:
+            raise RequestError("the start date is after the end date")
         tables.append((source, p.read(ids, start, end, options)))
 
     table = sources.merge(tables)

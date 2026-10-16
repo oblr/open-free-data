@@ -26,15 +26,18 @@ import json
 import pkgutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone, tzinfo
 from functools import cache
 from pathlib import Path
+from typing import TextIO
+from zoneinfo import ZoneInfo
 
 import numpy as np
 
 HERE = Path(__file__).parent
 DATA = HERE / "data"
 GROUP_SEPARATOR = " / "
+CLI_DAYS = 30  # default span of a reader's command line
 COUNTRIES = {  # source id prefix -> top level of the browser's tree
     "de": "Germany",
     "fr": "France",
@@ -42,6 +45,9 @@ COUNTRIES = {  # source id prefix -> top level of the browser's tree
     "uk": "United Kingdom",
     "us": "United States",
 }
+
+
+Time = str | datetime | np.datetime64 | None
 
 
 @dataclass(frozen=True)
@@ -168,3 +174,53 @@ def merge(tables: list[tuple[str, Table]]) -> Table:
     combined = combine([table for _, table in tables])
     columns = tuple(f"{source}:{column}" for source, table in tables for column in table.columns)
     return Table(columns, combined.time, combined.values)
+
+
+def moment(text: str | None, zone: str | tzinfo, end: bool) -> datetime | None:
+    """A date or date-time typed by a person; without an offset it is in `zone`.
+
+    A bare end date means the whole day. Raises ValueError for anything else.
+    """
+    if not text:
+        return None
+    try:
+        value = datetime.fromisoformat(text)
+    except ValueError as error:
+        raise ValueError(f"not a date: {text!r}") from error
+    if len(text) == 10 and end:
+        value = datetime.combine(value.date(), datetime.max.time())
+    return value if value.tzinfo else value.replace(tzinfo=_zone(zone))
+
+
+def span(start: str | None, end: str | None, zone: str | tzinfo, days: int = CLI_DAYS) -> tuple[datetime, datetime]:
+    """A reader's --start and --end: the end defaults to now, the start to `days` before the end."""
+    last = moment(end, zone, end=True) or datetime.now(_zone(zone))
+    first = moment(start, zone, end=False) or last - timedelta(days=days)
+    if first > last:
+        raise ValueError(f"start {first} is after end {last}")
+    return first, last
+
+
+def epoch_ms(value: Time, zone: str | tzinfo) -> int | None:
+    """Milliseconds since 1970 UTC; strings and datetimes without an offset are in `zone`."""
+    if value is None:
+        return None
+    if isinstance(value, np.datetime64):
+        return int(value.astype("datetime64[ms]").astype(np.int64))  # numpy times are UTC
+    when = datetime.fromisoformat(value) if isinstance(value, str) else value
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=_zone(zone))
+    return int(when.astimezone(timezone.utc).timestamp() * 1000)
+
+
+def write_csv(table: Table, out: TextIO, zone: str | tzinfo) -> None:
+    """The table as CSV with ISO timestamps in `zone`."""
+    tz = _zone(zone)
+    out.write(",".join(("timestamp", *table.columns)) + "\n")
+    for t, row in zip(table.time.astype(np.int64), table.values, strict=True):
+        stamp = datetime.fromtimestamp(t / 1000, tz).isoformat()
+        out.write(",".join((stamp, *("" if np.isnan(v) else repr(float(v)) for v in row))) + "\n")
+
+
+def _zone(zone: str | tzinfo) -> tzinfo:
+    return ZoneInfo(zone) if isinstance(zone, str) else zone

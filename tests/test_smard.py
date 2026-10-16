@@ -7,6 +7,7 @@ import pytest
 
 import cache
 import smard
+import sources
 from cache import FetchError
 from conftest import HOUR_MS, T0
 
@@ -52,11 +53,38 @@ def test_bad_resolution():
         smard.read(410, resolution="minute")
 
 
+def test_start_after_end(smard_files):
+    with pytest.raises(ValueError, match="after"):
+        smard.read(410, start=hours(3)[0], end=hours(2)[0])
+
+
+def test_cli_end_date_is_the_whole_day_and_start_defaults_to_30_days(smard_files, monkeypatch, capsys):
+    seen = {}
+    real = smard.read_frame
+
+    def fake(filters, region, resolution, start, end):
+        seen.update(start=start, end=end)
+        return real(filters, region, resolution, start, end)
+
+    monkeypatch.setattr(smard, "read_frame", fake)
+    smard.main(["410", "--end", "2024-01-01"])
+    assert seen["end"].isoformat() == "2024-01-01T23:59:59.999999+01:00"
+    assert (seen["end"] - seen["start"]).days == sources.CLI_DAYS
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[1].startswith("2024-01-01T02:00") and lines[-1].startswith("2024-01-01T06:00")
+
+
+def test_cli_rejects_start_after_end(smard_files, capsys):
+    with pytest.raises(SystemExit):
+        smard.main(["410", "--start", "2024-01-02", "--end", "2024-01-01"])
+    assert "after" in capsys.readouterr().err
+
+
 def test_read_frame_and_csv(smard_files):
     table = smard.read_frame([410, 410], end=hours(2)[0])
     assert table.values.shape == (2, 2)
     out = io.StringIO()
-    smard.write_csv(table, out)
+    sources.write_csv(table, out, smard.TZ)
     assert out.getvalue().splitlines() == [
         "timestamp,consumption_total,consumption_total",
         "2024-01-01T02:00:00+01:00,1.0,1.0",

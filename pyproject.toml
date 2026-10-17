@@ -22,4 +22,4 @@ target-version = "py311"  # also reports syntax newer than the oldest supported 
 select = ["E", "F", "W", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["browser", "cache", "conftest", "dwd", "eco2mix", "hubeau", "pegelonline", "plugins", "smard", "sources"]
+known-first-party = ["browser", "cache", "conftest", "dwd", "eco2mix", "hubeau", "pegelonline", "plugins", "smard", "sources", "vocabulary"]

@@ -7,10 +7,17 @@ Lists every source in data/; the ones with a plugin in plugins/ can be
 searched and plotted, also side by side across sources. Standard library
 only; data goes through each plugin's reader and so through the cache.
 
+The page is web/index.html with the TypeScript in web/src, compiled to
+web/dist (cd web && npm install && npm run build). It is served as:
+    /                               web/index.html
+    /dist/<file>.js                 web/dist/<file>.js, the compiled modules
+
 API (all GET):
     /api/sources                    sources, their options and whether they have a plugin
     /api/sources/<id>/datasets      the datasets of one plugged-in source
     /api/series?d=<source>:<dataset>&d=...&<source>.<option>=<value>&start=<date>&end=<date>[&format=csv]
+    /api/vocabulary                 the terms of vocabulary.py: variables, measures, regions, countries
+    /api/related?d=<source>:<dataset>&d=...   series related to these (see relations.py)
 """
 
 from __future__ import annotations
@@ -29,10 +36,15 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import numpy as np
 
+import relations
 import sources
+import vocabulary
 from cache import FetchError
 
-PAGE = Path(__file__).with_name("browser.html")
+WEB = Path(__file__).with_name("web")
+PAGE = WEB / "index.html"
+DIST = WEB / "dist"
+STATIC_TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8"}
 
 
 class RequestError(ValueError):
@@ -51,6 +63,41 @@ def datasets(source: str) -> dict[str, sources.Dataset]:
     """The plugin's datasets; those without a link of their own get the source's."""
     fallback = next((row["link"] for row in sources.catalog() if row["id"] == source), "")
     return {d.id: d if d.link else replace(d, link=fallback) for d in plugin(source).datasets()}
+
+
+def all_entries() -> list[relations.Entry]:
+    """Every dataset of every plugged-in source whose list can be loaded."""
+    found = []
+    for source in sources.discover():
+        try:
+            found += [relations.Entry(source, d) for d in datasets(source).values()]
+        except Exception:  # noqa: BLE001 (a source that can't list its datasets just has no relations)
+            continue
+    return found
+
+
+def related(query: dict[str, list[str]]) -> list[dict]:
+    entries = all_entries()
+    by_key = {e.key: e for e in entries}
+    targets = []
+    for key in query.get("d", []):
+        if key not in by_key:
+            raise RequestError(f"no dataset {key!r}")
+        targets.append(by_key[key])
+    if not targets:
+        raise RequestError("pick at least one dataset")
+    return [asdict(r) for r in relations.related(targets, entries)]
+
+
+@cache
+def vocabulary_terms() -> dict:
+    return {
+        "variables": {k: asdict(v) for k, v in vocabulary.VARIABLES.items()},
+        "measures": vocabulary.MEASURES,
+        "kinds": list(vocabulary.KINDS),
+        "regions": {k: asdict(v) for k, v in vocabulary.REGIONS.items()},
+        "countries": {k: asdict(v) for k, v in vocabulary.COUNTRIES.items()},
+    }
 
 
 def source_list() -> list[dict]:
@@ -128,11 +175,19 @@ class Handler(BaseHTTPRequestHandler):
         parts = [unquote(p) for p in url.path.strip("/").split("/")]
         try:
             if url.path == "/":
+                if not (DIST / "main.js").exists():
+                    raise RequestError("the page is not built: cd web && npm install && npm run build")
                 self._send(HTTPStatus.OK, "text/html; charset=utf-8", PAGE.read_bytes())
+            elif parts[0] == "dist" and len(parts) > 1:
+                self._static(parts[1:])
             elif parts == ["api", "sources"]:
                 self._json(HTTPStatus.OK, source_list())
             elif len(parts) == 4 and parts[:2] == ["api", "sources"] and parts[3] == "datasets":
                 self._json(HTTPStatus.OK, [asdict(d) for d in datasets(parts[2]).values()])
+            elif parts == ["api", "vocabulary"]:
+                self._json(HTTPStatus.OK, vocabulary_terms())
+            elif parts == ["api", "related"]:
+                self._json(HTTPStatus.OK, related(query))
             elif parts == ["api", "series"]:
                 columns, table, on_grid = series(query)
                 if query.get("format", ["json"])[0] == "csv":
@@ -155,6 +210,15 @@ class Handler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.BAD_GATEWAY, {"error": f"source not reachable: {error}"})
         except Exception as error:  # a plugin's own error: show it rather than drop the connection
             self._json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": f"{type(error).__name__}: {error}"})
+
+    def _static(self, parts: list[str]) -> None:
+        """A compiled file from web/dist; nothing outside it, nothing but .js and .css."""
+        target = DIST.joinpath(*parts).resolve()
+        kind = STATIC_TYPES.get(target.suffix)
+        if not (kind and target.is_relative_to(DIST.resolve()) and target.is_file()):
+            self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
+            return
+        self._send(HTTPStatus.OK, kind, target.read_bytes(), {"Cache-Control": "no-cache"})
 
     def _json(self, status: HTTPStatus, body: object) -> None:
         self._send(status, "application/json", json.dumps(body).encode())

@@ -74,7 +74,7 @@ def get(url: str) -> tuple[int, bytes]:
 
 def test_http_api(server, smard_files):
     status, body = get(f"{server}/")
-    assert status == 200 and b"<html" in body.lower()
+    assert status == 200 and b'<script type="module" src="dist/main.js">' in body
     status, body = get(f"{server}/api/sources")
     assert status == 200 and any(s["id"] == "de-smard" and s["options"] for s in json.loads(body))
     status, body = get(f"{server}/api/sources/de-smard/datasets")
@@ -86,3 +86,34 @@ def test_http_api(server, smard_files):
     assert status == 200 and body.startswith(b"timestamp_utc,")
     assert get(f"{server}/api/series")[0] == 400
     assert get(f"{server}/nope")[0] == 404
+
+
+def test_compiled_page_is_served_and_nothing_else(server):
+    status, body = get(f"{server}/dist/main.js")
+    assert status == 200 and b'from "./api.js"' in body
+    assert get(f"{server}/dist/plugins/de-smard.js")[0] == 200
+    assert get(f"{server}/dist/../browser.py")[0] == 404  # urllib keeps the dots; the server must not follow them
+    assert get(f"{server}/dist/%2E%2E/browser.py")[0] == 404
+    assert get(f"{server}/dist/missing.js")[0] == 404
+
+
+def test_every_source_module_is_compiled():
+    """web/dist is committed so the browser works without Node; it must match web/src."""
+    src = {p.relative_to(browser.WEB / "src").with_suffix(".js") for p in (browser.WEB / "src").rglob("*.ts")}
+    dist = {p.relative_to(browser.DIST) for p in browser.DIST.rglob("*.js")}
+    assert src == dist
+
+
+def test_vocabulary_and_related_endpoints(server, smard_files, pegelonline_stations, hubeau_files, dwd_files):
+    status, body = get(f"{server}/api/vocabulary")
+    terms = json.loads(body)
+    assert status == 200 and terms["variables"]["electricity.generation.solar"]["standard"] == "entsoe:B16"
+    assert terms["regions"]["DE4"]["name"] == "Brandenburg" and terms["countries"]["FR"]["name"] == "France"
+    status, body = get(f"{server}/api/related?d=de-smard:4068")
+    found = {r["key"]: r for r in json.loads(body)}
+    assert status == 200
+    assert found["de-smard:125"]["relation"] == "forecast"
+    assert found["fr-rte-eco2mix:solaire"]["reason"] == "Solar in Mainland France"
+    assert found["de-dwd-opendata:03987/SD_SO"]["relation"] == "driver"
+    assert get(f"{server}/api/related?d=de-smard:nope")[0] == 400
+    assert get(f"{server}/api/related")[0] == 400

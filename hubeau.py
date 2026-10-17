@@ -40,6 +40,7 @@ import argparse
 import json
 import sys
 import time as clock
+import zlib
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -65,7 +66,8 @@ DOWNLOADS = 4
 TZ = ZoneInfo("Europe/Paris")
 RESOLUTIONS = ("native", "hour", "day")
 STATION_FIELDS = ("code_station", "libelle_station", "type_station", "libelle_cours_eau", "libelle_commune",
-                  "code_departement", "date_ouverture_station")
+                  "code_departement", "code_region", "date_ouverture_station", "longitude_station",
+                  "latitude_station")
 
 # Series -> (name, unit, divisor from Hub'eau's unit)
 SERIES = {
@@ -84,12 +86,17 @@ def stations(cache: Path | None = None) -> list[dict]:
     while True:
         query = {"format": "json", "en_service": "true", "size": PAGE, "page": page, "fields": ",".join(STATION_FIELDS)}
         body = json.loads(store.fetch(f"{BASE}/referentiel/stations?{urlencode(query)}",
-                                      f"stations/{PAGE}-{page}.json", STATIONS_MAX_AGE))
+                                      f"stations/{_fields_key()}-{page}.json", STATIONS_MAX_AGE))
         for station in body["data"]:
             found.setdefault(station["code_station"], station)
         if not body.get("next") or not body["data"]:
             return list(found.values())
         page += 1
+
+
+def _fields_key() -> str:
+    """Names the cached station pages after the page size and fields asked for, so a change refetches them."""
+    return f"{PAGE}-{zlib.crc32(','.join(STATION_FIELDS).encode()):08x}"
 
 
 def read(

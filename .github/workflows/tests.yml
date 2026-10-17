@@ -31,3 +31,18 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -r requirements.txt pytest
       - run: python -m pytest  # offline: every download is blocked in tests/conftest.py
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm ci
+      - run: npm run build
+      # web/dist is committed so the browser works without Node: it must match web/src
+      - run: git diff --exit-code -- dist

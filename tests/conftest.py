@@ -93,8 +93,8 @@ def utc_stamp(ms: int) -> str:
 
 HUBEAU_STATIONS = [
     {"code_station": "F700000103", "libelle_station": "La Seine à Paris - Austerlitz", "type_station": "STD",
-     "libelle_cours_eau": "La Seine", "libelle_commune": "PARIS", "code_departement": "75",
-     "date_ouverture_station": "2006-01-26T00:00:00Z"},
+     "libelle_cours_eau": "La Seine", "libelle_commune": "PARIS", "code_departement": "75", "code_region": "11",
+     "date_ouverture_station": "2006-01-26T00:00:00Z", "longitude_station": 2.3655, "latitude_station": 48.8447},
     {"code_station": "D0000001", "libelle_station": "Débit seul", "type_station": "DEB",
      "libelle_cours_eau": None, "libelle_commune": None, "code_departement": "59", "date_ouverture_station": None},
     {"code_station": "C0000001", "libelle_station": "Calculée", "type_station": "FICTIVE",
@@ -110,9 +110,10 @@ def hubeau_files(cache_root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     import hubeau
     monkeypatch.setattr(hubeau, "_now", lambda: paris_ms("2024-01-10T12:00"))
     source = hubeau.SOURCE
-    put(cache_root, source, f"stations/{hubeau.PAGE}-1.json", {"data": HUBEAU_STATIONS[:2], "next": "page 2"})
-    put(cache_root, source, f"stations/{hubeau.PAGE}-2.json",  # overlapping, as pages cached at different times can
-        {"data": HUBEAU_STATIONS[1:], "next": None})
+    pages = f"stations/{hubeau._fields_key()}"
+    put(cache_root, source, f"{pages}-1.json", {"data": HUBEAU_STATIONS[:2], "next": "page 2"})
+    # overlapping, as pages cached at different times can
+    put(cache_root, source, f"{pages}-2.json", {"data": HUBEAU_STATIONS[1:], "next": None})
     start = paris_ms("2024-01-08T00:00")
     times = [start + i * 1_800_000 for i in range(96)]  # two days
     for kind, base in (("Q", 100_000.0), ("H", 1_000.0)):

@@ -5,7 +5,19 @@ from __future__ import annotations
 from datetime import datetime
 
 import dwd
-from sources import Dataset, Option, Plugin, Table
+from sources import Dataset, Option, Place, Plugin, Table
+from vocabulary import REGIONS, STATE_TO_NUTS
+
+# DWD variable -> (variable, measure) in the terms of vocabulary.py.
+VARIABLES = {
+    "TT_TU": ("weather.air_temperature", "temperature"),
+    "RF_TU": ("weather.relative_humidity", "humidity"),
+    "R1": ("weather.precipitation", "amount"),
+    "F": ("weather.wind_speed", "speed"),
+    "D": ("weather.wind_direction", "direction"),
+    "SD_SO": ("weather.sunshine_duration", "duration"),
+    "P": ("weather.air_pressure", "pressure"),
+}
 
 
 class Dwd(Plugin):
@@ -23,6 +35,9 @@ class Dwd(Plugin):
         for group in dict.fromkeys(v.group for v in dwd.VARIABLES.values()):
             for station in sorted(dwd.reporting(group), key=lambda s: s["name"]):
                 since = f"{station['from'][:4]}-{station['from'][4:6]}-{station['from'][6:]}"
+                region = STATE_TO_NUTS.get(station["state"], "")
+                place = Place(country=REGIONS[region].country if region else "DE", region=region,
+                              name=station["name"], lat=station["lat"], lon=station["lon"])
                 for key, variable in dwd.VARIABLES.items():
                     if variable.group != group:
                         continue
@@ -35,6 +50,12 @@ class Dwd(Plugin):
                                      f"{station['height']:g} m, DWD station {station['id']}; "
                                      f"hourly since {since}."),
                         link=f"{dwd.BASE}/{group}/",
+                        variable=VARIABLES[key][0],
+                        measure=VARIABLES[key][1],
+                        place=place,
+                        resolution="1h",
+                        since=since,
+                        quality="mixed",  # quality-checked history, recent data checked less
                     ))
         return rows
 

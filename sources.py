@@ -51,8 +51,25 @@ Time = str | datetime | np.datetime64 | None
 
 
 @dataclass(frozen=True)
+class Place:
+    """Where a series is measured, or the area it covers."""
+
+    country: str  # ISO 3166-1 alpha-2, "DE"; empty for an area across countries
+    region: str = ""  # NUTS 1 code from vocabulary.REGIONS, "DE4" (Brandenburg)
+    name: str = ""  # station, town or area: "Potsdam", "Germany/Luxembourg bidding zone"
+    lat: float | None = None  # WGS 84
+    lon: float | None = None
+    water: str = ""  # the river, canal or sea a gauge is on: "Rhein", "La Seine"
+
+
+@dataclass(frozen=True)
 class Dataset:
-    """One series a plugin can read."""
+    """One series a plugin can read.
+
+    The fields after `link` make series comparable across sources; their
+    terms come from vocabulary.py (see there), and tests/test_vocabulary.py
+    checks every plugin against it.
+    """
 
     id: str  # unique within the plugin
     label: str
@@ -60,6 +77,13 @@ class Dataset:
     unit: str = ""
     description: str = ""  # what the series measures, for people choosing it
     link: str = ""  # the series on the source's website; empty means the source's link in data/
+    variable: str = ""  # what is measured: a key of vocabulary.VARIABLES, "electricity.generation.solar"
+    measure: str = ""  # what kind of number: a key of vocabulary.MEASURES, "energy"
+    kind: str = "observation"  # one of vocabulary.KINDS: observation, forecast, estimate
+    place: Place | None = None  # where, for the plugin's default options
+    resolution: str = ""  # the native time step, "15min", "1h", "1d"; empty if it varies
+    since: str = ""  # first day of the history, "1893-01-01"; empty if unknown or a rolling window
+    quality: str = ""  # one of vocabulary.QUALITIES: raw, mixed, validated
 
 
 @dataclass(frozen=True)

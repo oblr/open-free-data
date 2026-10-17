@@ -5,7 +5,11 @@ from __future__ import annotations
 from datetime import datetime
 
 import hubeau
-from sources import Dataset, Option, Plugin, Table
+from sources import Dataset, Option, Place, Plugin, Table
+from vocabulary import INSEE_TO_NUTS
+
+# Series -> (variable, measure) in the terms of vocabulary.py.
+VARIABLES = {"H": ("water.level", "level"), "Q": ("water.discharge", "flow")}
 
 STATION_PAGE = "https://www.hydro.eaufrance.fr/stationhydro/{code}/fiche"
 
@@ -24,10 +28,13 @@ class Hubeau(Plugin):
         rows = []
         for station in sorted(hubeau.stations(), key=lambda s: s["libelle_station"]):
             code, river = station["code_station"], station["libelle_cours_eau"] or "Other waters"
-            opened = (station.get("date_ouverture_station") or "")[:4]
+            opened = (station.get("date_ouverture_station") or "")[:10]
+            place = Place(country="FR", region=INSEE_TO_NUTS.get(station.get("code_region") or "", ""),
+                          name=station["libelle_station"], lat=station.get("latitude_station"),
+                          lon=station.get("longitude_station"), water=station["libelle_cours_eau"] or "")
             for kind in hubeau.TYPES.get(station["type_station"], ()):
                 name, unit, _ = hubeau.SERIES[kind]
-                history = ("Daily mean flows reach back" + (f" to {opened}" if opened else "") + "; "
+                history = ("Daily mean flows reach back" + (f" to {opened[:4]}" if opened else "") + "; "
                            if kind == "Q" else "No history; ")
                 rows.append(Dataset(
                     id=f"{code}/{kind}",
@@ -38,6 +45,11 @@ class Hubeau(Plugin):
                                  f"département {station['code_departement']}), station {code}. "
                                  f"{history}the real-time data covers the last 30 days."),
                     link=STATION_PAGE.format(code=code),
+                    variable=VARIABLES[kind][0],
+                    measure=VARIABLES[kind][1],
+                    place=place,
+                    since=opened if kind == "Q" else "",  # levels only have the rolling 30 days
+                    quality="mixed" if kind == "Q" else "raw",  # validated daily flows, raw real time
                 ))
         return rows
 

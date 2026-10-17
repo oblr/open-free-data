@@ -5,10 +5,49 @@ from __future__ import annotations
 from datetime import datetime
 
 import smard
-from sources import Dataset, Option, Plugin, Table, combine
+from sources import Dataset, Option, Place, Plugin, Table, combine
 
 PRICE_REGION = "DE-LU"  # prices exist only for the bidding zone
 MARKET_DATA = "https://www.smard.de/en/marktdaten"  # SMARD's interactive charts, where every series can be picked
+
+# What each filter measures, in the terms of vocabulary.py. Forecasts share
+# the variable of what they forecast and differ in `kind`.
+VARIABLES: dict[int, str] = {
+    1223: "electricity.generation.coal.lignite",
+    1224: "electricity.generation.nuclear",
+    1225: "electricity.generation.wind.offshore",
+    1226: "electricity.generation.hydro",
+    1227: "electricity.generation.other_conventional",
+    1228: "electricity.generation.other_renewable",
+    4066: "electricity.generation.bioenergy.biomass",
+    4067: "electricity.generation.wind.onshore",
+    4068: "electricity.generation.solar",
+    4069: "electricity.generation.coal.hard_coal",
+    4070: "electricity.generation.hydro.pumped_storage",
+    4071: "electricity.generation.gas",
+    410: "electricity.consumption",
+    4359: "electricity.residual_load",
+    4387: "electricity.storage.pumping",
+    411: "electricity.consumption",
+    4362: "electricity.residual_load",
+    122: "electricity.generation",
+    123: "electricity.generation.wind.onshore",
+    125: "electricity.generation.solar",
+    3791: "electricity.generation.wind.offshore",
+    715: "electricity.generation.other",
+    5097: "electricity.generation.wind_and_solar",
+    4169: "electricity.price.day_ahead",
+    5078: "electricity.price.day_ahead",
+    254: "electricity.price.day_ahead",
+}
+
+# Where the series apply, for the default region "DE"; prices have their own.
+GERMANY = Place(country="DE", name="Germany")
+PRICE_PLACES = {
+    4169: Place(country="DE", name="Germany/Luxembourg bidding zone"),
+    5078: Place(country="", name="Neighbours of the Germany/Luxembourg bidding zone"),
+    254: Place(country="FR", name="France"),
+}
 
 # Where each filter sits in the browser's tree, and its label there.
 LAYOUT: dict[int, tuple[str, str]] = {
@@ -64,6 +103,12 @@ class Smard(Plugin):
                 unit="EUR/MWh" if price else "MWh",
                 description=f"SMARD filter {key} ({name})" + (f", region {PRICE_REGION}" if price else ""),
                 link=MARKET_DATA,
+                variable=VARIABLES[key],
+                measure="price" if price else "energy",
+                kind="forecast" if name.startswith("forecast") else "observation",
+                place=PRICE_PLACES.get(key, GERMANY),
+                resolution="15min",
+                quality="mixed",  # recent values are provisional until consolidated
             ))
         return rows
 

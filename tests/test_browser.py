@@ -109,6 +109,9 @@ def test_vocabulary_and_related_endpoints(server, smard_files, pegelonline_stati
     terms = json.loads(body)
     assert status == 200 and terms["variables"]["electricity.generation.solar"]["standard"] == "entsoe:B16"
     assert terms["regions"]["DE4"]["name"] == "Brandenburg" and terms["countries"]["FR"]["name"] == "France"
+    assert terms["units"]["°"]["spellings"] == ["Grad", "deg", "degree"]
+    assert terms["dimensions"]["energy"] == {"label": "Energy", "base": "MWh", "rate": "power"}
+    assert terms["measures"]["level"]["units"] == ["m", "m+NN", "m+NHN"]
     status, body = get(f"{server}/api/related?d=de-smard:4068")
     found = {r["key"]: r for r in json.loads(body)}
     assert status == 200

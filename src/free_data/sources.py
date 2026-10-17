@@ -34,6 +34,8 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
+from free_data import units
+
 HERE = Path(__file__).parent
 DATA = HERE / "data"
 GROUP_SEPARATOR = " / "
@@ -74,16 +76,20 @@ class Dataset:
     id: str  # unique within the plugin
     label: str
     group: str = ""  # where it sits in the browser's tree; " / " nests, e.g. "Generation / Renewable"
-    unit: str = ""
+    unit: str = ""  # a symbol or spelling from units.UNITS; stored as the symbol
     description: str = ""  # what the series measures, for people choosing it
     link: str = ""  # the series on the source's website; empty means the source's link in data/
     variable: str = ""  # what is measured: a key of vocabulary.VARIABLES, "electricity.generation.solar"
-    measure: str = ""  # what kind of number: a key of vocabulary.MEASURES, "energy"
+    measure: str = ""  # what kind of number: a key of vocabulary.MEASURES, "energy"; it allows the unit's dimension
     kind: str = "observation"  # one of vocabulary.KINDS: observation, forecast, estimate
     place: Place | None = None  # where, for the plugin's default options
     resolution: str = ""  # the native time step, "15min", "1h", "1d"; empty if it varies
     since: str = ""  # first day of the history, "1893-01-01"; empty if unknown or a rolling window
     quality: str = ""  # one of vocabulary.QUALITIES: raw, mixed, validated
+
+    def __post_init__(self) -> None:
+        # a plugin may pass the source's spelling ("Grad", "m3/s"); keep the symbol from units.UNITS
+        object.__setattr__(self, "unit", units.unit(self.unit))
 
 
 @dataclass(frozen=True)

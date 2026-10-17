@@ -1,9 +1,10 @@
 """The shared vocabulary that makes series from different sources comparable.
 
-Every dataset names a `variable` from VARIABLES, a `measure` from MEASURES
-and, through its Place, a country and a region from REGIONS. Plugins fill
-these in; tests/test_vocabulary.py checks that they only use terms defined
-here, so "solar generation" means the same in SMARD and in éCO2mix.
+Every dataset names a `variable` from VARIABLES, a `measure` from MEASURES,
+a unit from UNITS (units.py, re-exported here) and, through its Place, a
+country and a region from REGIONS. Plugins fill these in;
+tests/test_vocabulary.py checks that they only use terms defined here, so
+"solar generation" means the same in SMARD and in éCO2mix.
 
 Variable ids are dotted and nest: "electricity.generation.coal.lignite" is
 a kind of "electricity.generation.coal", so French coal (one series) and
@@ -18,6 +19,17 @@ Where a standard exists, a variable names its term there:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
+from free_data.units import (  # noqa: F401  (re-exported: the units are part of the vocabulary)
+    DIMENSIONS,
+    UNITS,
+    Dimension,
+    Unit,
+    convert,
+    convertible,
+    dimension,
+    unit,
+)
 
 
 @dataclass(frozen=True)
@@ -130,29 +142,40 @@ VARIABLES: dict[str, Variable] = {
     "water.groundwater_level": _v("Groundwater level", "Grundwasser", "nappe phréatique"),
 }
 
+@dataclass(frozen=True)
+class Measure:
+    label: str
+    dimensions: tuple[str, ...] = ()  # keys of units.DIMENSIONS its unit may have; () for any
+
+    @property
+    def units(self) -> tuple[str, ...]:
+        """The base units of its dimensions, for people choosing it: "MW", or "m", "m+NN", "m+NHN"."""
+        return tuple(DIMENSIONS[d].base for d in self.dimensions if DIMENSIONS[d].base)
+
+
 # What a number is, independent of the subject: comparing a power with an
 # energy, or a level with a flow, needs care even for the same variable.
-MEASURES = {
-    "power": "Average power over the interval (MW)",
-    "energy": "Energy per interval (MWh)",
-    "price": "Price (EUR/MWh)",
-    "intensity": "Emissions per unit of energy (g/kWh)",
-    "temperature": "Temperature (°C)",
-    "humidity": "Relative humidity (%)",
-    "amount": "Amount per interval, e.g. precipitation (mm)",
-    "duration": "Duration per interval, e.g. sunshine (min)",
-    "speed": "Speed (m/s)",
-    "direction": "Direction (degrees from north)",
-    "pressure": "Pressure (hPa)",
-    "level": "Height or level (cm, m)",
-    "flow": "Volume per time (m³/s)",
-    "concentration": "Concentration (mg/l)",
-    "conductivity": "Electrical conductivity (µS/cm, mS/cm)",
-    "ph": "pH",
-    "turbidity": "Turbidity (FNU, NTU)",
-    "volume": "Volume (m³)",
-    "period": "Period (s)",
-    "other": "Anything else",
+MEASURES: dict[str, Measure] = {
+    "power": Measure("Average power over the interval", ("power",)),
+    "energy": Measure("Energy per interval", ("energy",)),
+    "price": Measure("Price", ("price",)),
+    "intensity": Measure("Emissions per unit of energy", ("intensity",)),
+    "temperature": Measure("Temperature", ("temperature",)),
+    "humidity": Measure("Relative humidity", ("fraction",)),
+    "amount": Measure("Amount per interval, e.g. precipitation", ("length",)),
+    "duration": Measure("Duration per interval, e.g. sunshine", ("time",)),
+    "speed": Measure("Speed", ("speed",)),
+    "direction": Measure("Direction", ("angle", "angle_magnetic")),
+    "pressure": Measure("Pressure", ("pressure",)),
+    "level": Measure("Height or level", ("length", "height_nn", "height_nhn")),
+    "flow": Measure("Volume per time", ("flow",)),
+    "concentration": Measure("Concentration", ("concentration",)),
+    "conductivity": Measure("Electrical conductivity", ("conductivity",)),
+    "ph": Measure("pH", ("dimensionless",)),
+    "turbidity": Measure("Turbidity", ("turbidity",)),
+    "volume": Measure("Volume", ("volume",)),
+    "period": Measure("Period", ("time",)),
+    "other": Measure("Anything else"),
 }
 
 KINDS = ("observation", "forecast", "estimate")

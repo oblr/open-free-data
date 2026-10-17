@@ -18,6 +18,7 @@ Python 3.11 or newer; the only dependency is numpy.
 
 ## Use
 
+    ./browser.sh                          # set up .venv if needed, then start the browser
     free-data                             # the browser, then open http://127.0.0.1:8050
     free-data-smard --list                # SMARD series ids
     free-data-smard 410 4169 --start 2024-01-01 --end 2024-12-31 --out load.csv
@@ -50,6 +51,7 @@ All Python code is in the package `src/free_data/`:
 | `data/<id>.json` | One source: id, link, description. |
 | `sources.py` | The plugin interface (`Plugin`, `Dataset`, `Option`, `Table`), discovery and the catalog. |
 | `vocabulary.py` | The shared terms for series metadata: variables, measures, regions. |
+| `units.py` | The unit table: dimensions, units and their spellings, and conversion. |
 | `plugins/` | One module per readable source, each with a module-level `PLUGIN`. |
 | `cache.py` | Downloads, cached under `~/.cache/free-data/<source>/`. |
 | `smard.py` | Reader for SMARD, the Bundesnetzagentur's electricity market data. |
@@ -77,7 +79,11 @@ terms, so series from different sources can be found and related:
   `water.discharge` (PEGELONLINE and Hub'eau alike), with German, French
   and English synonyms and, where one exists, the CF standard name or
   ENTSO-E production type;
-- `measure`: what kind of number it is (power, energy, price, level, …);
+- `measure`: what kind of number it is (power, energy, price, level, …),
+  and so which dimensions its unit may have;
+- `unit`: a symbol from `units.UNITS`. A plugin may pass the source's own
+  spelling (`Grad`, `m3/s`, `TE/F`); `Dataset` stores the symbol (`°`,
+  `m³/s`, `FTU`), so the page draws one axis per unit;
 - `kind`: observation, forecast or estimate;
 - `place`: country, NUTS region, name, coordinates and river where known;
 - `resolution`, `since` and `quality`.
@@ -94,6 +100,18 @@ and effects from a short list of links between variables (sunshine and
 solar generation, rain and river flow, residual load and price), nearby or
 in the same country. `GET /api/related?d=<source>:<dataset>` returns them
 with a reason each, and the page shows them under the selection.
+
+`units.py` holds three tables that point into each other. `DIMENSIONS`
+says what a unit measures, its base unit, and for an amount per interval
+the rate it averages to (energy → power). `UNITS` maps each symbol to its
+dimension, its factor to the base unit, and the other spellings sources use.
+`vocabulary.MEASURES` lists the dimensions each measure allows.
+`units.convert(values, "MWh", "MW", hours=0.25)` converts within a dimension
+or from an amount to its rate. Heights above different datums (`cm` above
+the gauge zero, `m+NN`, `m+NHN`) are separate dimensions and don't convert;
+neither do turbidity units (their dimension has no base). A new spelling
+goes into its unit's `spellings`, a new unit into `UNITS`, a new kind of
+quantity into `DIMENSIONS`.
 
 `tests/test_vocabulary.py` checks that every plugin only uses terms from
 `vocabulary.py`. A new plugin fills these fields in its `datasets()`; a new

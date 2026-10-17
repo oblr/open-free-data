@@ -18,7 +18,7 @@ API (all GET):
     /api/sources                    sources, their options and whether they have a plugin
     /api/sources/<id>/datasets      the datasets of one plugged-in source
     /api/series?d=<source>:<dataset>&d=...&<source>.<option>=<value>&start=<date>&end=<date>[&format=csv]
-    /api/vocabulary                 the terms of vocabulary.py: variables, measures, regions, countries
+    /api/vocabulary                 the terms of vocabulary.py and units.py
     /api/related?d=<source>:<dataset>&d=...   series related to these (see relations.py)
 """
 
@@ -38,7 +38,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import numpy as np
 
-from free_data import relations, sources, vocabulary
+from free_data import relations, sources, units, vocabulary
 from free_data.cache import FetchError
 
 WEB = Path(__file__).with_name("web")  # installed from a wheel
@@ -95,7 +95,9 @@ def related(query: dict[str, list[str]]) -> list[dict]:
 def vocabulary_terms() -> dict:
     return {
         "variables": {k: asdict(v) for k, v in vocabulary.VARIABLES.items()},
-        "measures": vocabulary.MEASURES,
+        "measures": {k: {**asdict(v), "units": list(v.units)} for k, v in vocabulary.MEASURES.items()},
+        "units": {k: asdict(v) for k, v in units.UNITS.items()},
+        "dimensions": {k: asdict(v) for k, v in units.DIMENSIONS.items()},
         "kinds": list(vocabulary.KINDS),
         "regions": {k: asdict(v) for k, v in vocabulary.REGIONS.items()},
         "countries": {k: asdict(v) for k, v in vocabulary.COUNTRIES.items()},

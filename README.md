@@ -57,6 +57,7 @@ All Python code is in the package `src/free_data/`:
 | `vocabulary.py` | The shared terms for series metadata: variables, measures, regions. |
 | `units.py` | The unit table: dimensions, units and their spellings, and conversion. |
 | `transforms.py` | What the browser does to a series before showing it: another unit, totals or means per hour, day or month. |
+| `fingerprints.py` | Precomputed measurements: features of one series and comparisons of two, registered by name and stored per dataset in the cache. |
 | `plugins/` | One module per readable source, each with a module-level `PLUGIN`. |
 | `cache.py` | Downloads, cached under `~/.cache/free-data/<source>/`. |
 | `smard.py` | Reader for SMARD, the Bundesnetzagentur's electricity market data. |

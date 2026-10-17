@@ -3,9 +3,10 @@
 Every reader stores what it downloads under one folder per source, named
 after the source's id in data/ (e.g. "de-smard"):
 
-    free-data/cache/<source>/<key>
+    <root>/<source>/<key>
 
-The root is free-data/cache (git-ignored); $FREE_DATA_CACHE overrides it.
+The root is $FREE_DATA_CACHE, else $XDG_CACHE_HOME/free-data, else
+~/.cache/free-data.
 
 A file is fetched again once it is older than the `max_age` the reader asks
 for: None keeps it forever (data that no longer changes), 0 always fetches.
@@ -14,9 +15,9 @@ If the source can't be reached, or answers with a server error (5xx) or
 8 seconds. If it still fails and a cached copy exists, the copy is used with a
 warning, so readers keep working offline and through outages.
 
-    python cache.py                 # size and file count per source
-    python cache.py clear de-smard  # delete one source's files
-    python cache.py clear --older-than 30d
+    python -m free_data.cache                 # size and file count per source
+    python -m free_data.cache clear de-smard  # delete one source's files
+    python -m free_data.cache clear --older-than 30d
 """
 
 from __future__ import annotations
@@ -32,7 +33,6 @@ import urllib.request
 import warnings
 from pathlib import Path
 
-DEFAULT_ROOT = Path(__file__).with_name("cache")
 USER_AGENT = "free-data/0.1"
 RETRY_PAUSES = (2.0, 8.0)  # seconds before each new try after a temporary failure
 
@@ -54,7 +54,9 @@ class FetchError(RuntimeError):
 
 
 def root() -> Path:
-    return Path(os.environ.get("FREE_DATA_CACHE") or DEFAULT_ROOT)
+    if os.environ.get("FREE_DATA_CACHE"):
+        return Path(os.environ["FREE_DATA_CACHE"])
+    return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "free-data"
 
 
 class Cache:

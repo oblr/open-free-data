@@ -5,11 +5,9 @@ import io
 import numpy as np
 import pytest
 
-import cache
-import smard
-import sources
-from cache import FetchError
 from conftest import HOUR_MS, T0
+from free_data import cache, smard, sources
+from free_data.cache import FetchError
 
 
 def hours(*offsets: int) -> np.ndarray:

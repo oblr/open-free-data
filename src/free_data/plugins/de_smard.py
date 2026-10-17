@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import smard
-from sources import Dataset, Option, Place, Plugin, Table, combine
+from free_data import smard
+from free_data.sources import Dataset, Option, Place, Plugin, Table, combine
 
 PRICE_REGION = "DE-LU"  # prices exist only for the bidding zone
 MARKET_DATA = "https://www.smard.de/en/marktdaten"  # SMARD's interactive charts, where every series can be picked

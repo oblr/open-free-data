@@ -137,11 +137,11 @@ class Plugin(ABC):
 @cache
 def discover() -> dict[str, Plugin]:
     """Every plugin in plugins/, by source id."""
-    import plugins
+    from free_data import plugins
 
     found: dict[str, Plugin] = {}
     for module in pkgutil.iter_modules(plugins.__path__):
-        plugin = getattr(importlib.import_module(f"plugins.{module.name}"), "PLUGIN", None)
+        plugin = getattr(importlib.import_module(f"{plugins.__name__}.{module.name}"), "PLUGIN", None)
         if not isinstance(plugin, Plugin):
             continue
         if plugin.id in found:

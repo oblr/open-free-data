@@ -30,8 +30,8 @@ Downloads go through the free-data cache (cache.py), source
     daily flows, this decade       1 day
     daily flows, older decades    30 days  (validation revises old values)
 
-    python hubeau.py --list seine paris
-    python hubeau.py F700000103/Q --start 2016-05-01 --end 2016-06-30 --resolution day
+    python -m free_data.hubeau --list seine paris
+    python -m free_data.hubeau F700000103/Q --start 2016-05-01 --end 2016-06-30 --resolution day
 """
 
 from __future__ import annotations
@@ -49,9 +49,9 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-import sources
-from cache import DAY, MINUTE, Cache
-from sources import Table, Time
+from free_data import sources
+from free_data.cache import DAY, MINUTE, Cache
+from free_data.sources import Table, Time
 
 BASE = "https://hubeau.eaufrance.fr/api/v2/hydrometrie"
 SOURCE = "fr-hubeau-hydrometrie"  # the id in data/ and the cache folder

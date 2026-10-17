@@ -10,10 +10,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import browser
-import cache
-import eco2mix
-from sources import epoch_ms
+from free_data import browser, cache, eco2mix
+from free_data.sources import epoch_ms
 
 HEADER = "perimetre;nature;date;heure;date_heure;consommation;eolien;ech_comm_allemagne_belgique"
 QUARTER = 900_000

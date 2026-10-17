@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-import cache
+from free_data import cache
 
 HOUR_MS = 3_600_000
 T0 = 1_704_067_200_000  # 2024-01-01T00:00Z
@@ -82,7 +82,7 @@ def pegelonline_stations(cache_root: Path) -> list[dict]:
 # ---- Hub'eau: "now" is 2024-01-10 12:00 Paris ----
 
 def paris_ms(text: str) -> int:
-    from sources import epoch_ms
+    from free_data.sources import epoch_ms
     return epoch_ms(text, "Europe/Paris")
 
 
@@ -107,7 +107,7 @@ HUBEAU_STATIONS = [
 def hubeau_files(cache_root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Two pages of stations; real-time H and Q every 30 min from 2024-01-08 (newest first);
     daily mean flows 2023-12-30 to 2024-01-08."""
-    import hubeau
+    from free_data import hubeau
     monkeypatch.setattr(hubeau, "_now", lambda: paris_ms("2024-01-10T12:00"))
     source = hubeau.SOURCE
     pages = f"stations/{hubeau._fields_key()}"
@@ -151,7 +151,7 @@ def dwd_files(cache_root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     Air temperature: a historical file to 2024-01-01 00:00 UTC and a recent
     one from that hour, which overlap there. Wind: recent only."""
-    import dwd
+    from free_data import dwd
     monkeypatch.setattr(dwd, "_now", lambda: 1_704_888_000_000)
     folder = cache_root / dwd.SOURCE
     header = ("Stations_id von_datum bis_datum Stationshoehe geoBreite geoLaenge Stationsname Bundesland Abgabe\r\n"

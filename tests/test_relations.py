@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import relations
-from relations import Entry
-from sources import Dataset, Place
+from free_data import relations
+from free_data.relations import Entry
+from free_data.sources import Dataset, Place
 
 GERMANY = Place(country="DE", name="Germany")
 FRANCE = Place(country="FR", name="Mainland France")

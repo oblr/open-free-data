@@ -5,10 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import cache
-import dwd
-from cache import FetchError
-from plugins.de_dwd_opendata import PLUGIN
+from free_data import cache, dwd
+from free_data.cache import FetchError
+from free_data.plugins.de_dwd_opendata import PLUGIN
 
 
 def utc(text: str) -> int:

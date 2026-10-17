@@ -32,8 +32,8 @@ Downloads go through the free-data cache (cache.py), source "de-dwd-opendata":
     recent files                           6 hours
     historical files                       forever (a new version has a new name)
 
-    python dwd.py --list potsdam
-    python dwd.py 03987/TT_TU 03987/R1 --start 2025-07-01 --end 2025-07-31 --resolution day
+    python -m free_data.dwd --list potsdam
+    python -m free_data.dwd 03987/TT_TU 03987/R1 --start 2025-07-01 --end 2025-07-31 --resolution day
 """
 
 from __future__ import annotations
@@ -51,9 +51,9 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-import sources
-from cache import DAY, HOUR, Cache, FetchError
-from sources import Table, Time
+from free_data import sources
+from free_data.cache import DAY, HOUR, Cache, FetchError
+from free_data.sources import Table, Time
 
 BASE = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly"
 SOURCE = "de-dwd-opendata"  # the id in data/ and the cache folder

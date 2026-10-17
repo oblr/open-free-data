@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import dwd
-from sources import Dataset, Option, Place, Plugin, Table
-from vocabulary import REGIONS, STATE_TO_NUTS
+from free_data import dwd
+from free_data.sources import Dataset, Option, Place, Plugin, Table
+from free_data.vocabulary import REGIONS, STATE_TO_NUTS
 
 # DWD variable -> (variable, measure) in the terms of vocabulary.py.
 VARIABLES = {

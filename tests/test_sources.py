@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import sources
-from sources import Option, Plugin, Table
+from free_data import sources
+from free_data.sources import Option, Plugin, Table
 
 
 def table(columns: tuple[str, ...], times: list[int], values: list[list[float]]) -> Table:

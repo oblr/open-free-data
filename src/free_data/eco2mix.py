@@ -27,7 +27,7 @@ one file per calendar year of the history plus one for all real-time data:
     history of this and last year      1 day   (consolidated values get final)
     older history                     forever
 
-    python eco2mix.py consommation nucleaire --start 2024-01-01 --end 2024-12-31 --out fr.csv
+    python -m free_data.eco2mix consommation nucleaire --start 2024-01-01 --end 2024-12-31 --out fr.csv
 """
 
 from __future__ import annotations
@@ -45,9 +45,9 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-import sources
-from cache import DAY, MINUTE, Cache
-from sources import Table, Time
+from free_data import sources
+from free_data.cache import DAY, MINUTE, Cache
+from free_data.sources import Table, Time
 
 BASE = "https://odre.opendatasoft.com/api/explore/v2.1/catalog/datasets"
 HISTORY = "eco2mix-national-cons-def"

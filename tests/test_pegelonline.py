@@ -5,12 +5,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import cache
-import pegelonline
-from cache import FetchError
 from conftest import STATIONS, put
-from plugins.de_pegelonline import PLUGIN
-from sources import epoch_ms
+from free_data import cache, pegelonline
+from free_data.cache import FetchError
+from free_data.plugins.de_pegelonline import PLUGIN
+from free_data.sources import epoch_ms
 
 
 def ms(text: str) -> int:

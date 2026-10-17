@@ -5,8 +5,8 @@ import time
 
 import pytest
 
-import cache
-from cache import Cache, FetchError
+from free_data import cache
+from free_data.cache import Cache, FetchError
 
 
 @pytest.fixture

@@ -21,8 +21,8 @@ Downloads go through the free-data cache (cache.py), source "de-pegelonline":
     station list                1 day
     a series' last 31 days     15 min
 
-    python pegelonline.py --list rhein
-    python pegelonline.py KÖLN/W BONN/W --resolution native --start 2026-10-01
+    python -m free_data.pegelonline --list rhein
+    python -m free_data.pegelonline KÖLN/W BONN/W --resolution native --start 2026-10-01
 """
 
 from __future__ import annotations
@@ -38,9 +38,9 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-import sources
-from cache import DAY, MINUTE, Cache, FetchError
-from sources import Table, Time
+from free_data import sources
+from free_data.cache import DAY, MINUTE, Cache, FetchError
+from free_data.sources import Table, Time
 
 BASE = "https://www.pegelonline.wsv.de/webservices/rest-api/v2"
 STATION_PAGE = "https://www.pegelonline.wsv.de/gast/stammdaten?pegelnr={number}"

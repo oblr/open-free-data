@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import hubeau
 from conftest import paris_ms
-from plugins.fr_hubeau_hydrometrie import PLUGIN
+from free_data import hubeau
+from free_data.plugins.fr_hubeau_hydrometrie import PLUGIN
 
 
 def test_native_is_sorted_and_in_cm_and_cubic_metres(hubeau_files):

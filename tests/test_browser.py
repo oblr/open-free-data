@@ -8,8 +8,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-import browser
-from browser import RequestError
+from free_data import browser
+from free_data.browser import RequestError
 
 
 def test_moment_reads_bare_dates_in_the_source_zone():

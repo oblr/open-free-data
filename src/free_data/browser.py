@@ -1,14 +1,16 @@
 """A local web page to search and plot the free data sources.
 
-    python browser.py            # then open http://127.0.0.1:8050
-    python browser.py --port 9000
+    python -m free_data.browser            # then open http://127.0.0.1:8050
+    python -m free_data.browser --port 9000
 
 Lists every source in data/; the ones with a plugin in plugins/ can be
 searched and plotted, also side by side across sources. Standard library
 only; data goes through each plugin's reader and so through the cache.
 
 The page is web/index.html with the TypeScript in web/src, compiled to
-web/dist (cd web && npm install && npm run build). It is served as:
+web/dist (cd web && npm install && npm run build). The wheel ships index.html
+and dist/ as free_data/web; from a source checkout they are read from web/.
+It is served as:
     /                               web/index.html
     /dist/<file>.js                 web/dist/<file>.js, the compiled modules
 
@@ -36,12 +38,12 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import numpy as np
 
-import relations
-import sources
-import vocabulary
-from cache import FetchError
+from free_data import relations, sources, vocabulary
+from free_data.cache import FetchError
 
-WEB = Path(__file__).with_name("web")
+WEB = Path(__file__).with_name("web")  # installed from a wheel
+if not WEB.is_dir():
+    WEB = Path(__file__).parents[2] / "web"  # a source checkout or editable install
 PAGE = WEB / "index.html"
 DIST = WEB / "dist"
 STATIC_TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8"}

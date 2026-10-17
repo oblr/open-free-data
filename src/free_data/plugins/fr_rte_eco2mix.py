@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import eco2mix
-from sources import Dataset, Option, Place, Plugin, Table
+from free_data import eco2mix
+from free_data.sources import Dataset, Option, Place, Plugin, Table
 
 # What each field measures, in the terms of vocabulary.py.
 VARIABLES = {

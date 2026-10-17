@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import hubeau
-from sources import Dataset, Option, Place, Plugin, Table
-from vocabulary import INSEE_TO_NUTS
+from free_data import hubeau
+from free_data.sources import Dataset, Option, Place, Plugin, Table
+from free_data.vocabulary import INSEE_TO_NUTS
 
 # Series -> (variable, measure) in the terms of vocabulary.py.
 VARIABLES = {"H": ("water.level", "level"), "Q": ("water.discharge", "flow")}

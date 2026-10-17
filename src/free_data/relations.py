@@ -20,8 +20,8 @@ import math
 from collections import defaultdict
 from dataclasses import dataclass
 
-from sources import Dataset
-from vocabulary import COUNTRIES, VARIABLES, broader
+from free_data.sources import Dataset
+from free_data.vocabulary import COUNTRIES, VARIABLES, broader
 
 NEARBY_KM = 50.0  # how far a station's drivers may be from it
 SAME_SPOT_KM = 0.05  # closer than this is the same station

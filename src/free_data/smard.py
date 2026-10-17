@@ -24,7 +24,7 @@ How long a file stays fresh depends on how much it can still change:
     chunks of the last 90 days 1 day    (provisional values get consolidated)
     older chunks               forever
 
-    python smard.py 410 --start 2024-01-01 --end 2024-12-31 --out load.csv
+    python -m free_data.smard 410 --start 2024-01-01 --end 2024-12-31 --out load.csv
 
 On the command line the end date is inclusive (a bare date means the whole
 day) and the start defaults to 30 days before the end, since the full
@@ -41,9 +41,9 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-import sources
-from cache import DAY, HOUR, MINUTE, Cache, FetchError
-from sources import Table, Time, combine
+from free_data import sources
+from free_data.cache import DAY, HOUR, MINUTE, Cache, FetchError
+from free_data.sources import Table, Time, combine
 
 BASE = "https://www.smard.de/app/chart_data"
 SOURCE = "de-smard"  # the id in data/ and the cache folder

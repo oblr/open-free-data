@@ -8,9 +8,8 @@ from dataclasses import asdict
 
 import pytest
 
-import sources
-import vocabulary
-from vocabulary import KINDS, MEASURES, QUALITIES, REGIONS, VARIABLES
+from free_data import sources, vocabulary
+from free_data.vocabulary import KINDS, MEASURES, QUALITIES, REGIONS, VARIABLES
 
 
 def test_every_broader_variable_exists():

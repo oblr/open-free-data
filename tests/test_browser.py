@@ -54,6 +54,28 @@ def test_series_and_csv(smard_files):
     assert lines[1] == "2024-01-01T01:00:00+00:00,1.0"
 
 
+def test_series_in_another_unit_and_step(smard_files):
+    query = {"d": ["de-smard:410"], "end": ["2024-01-01T03:00"], "unit.de-smard:410": ["MW"]}
+    columns, table, _ = browser.series(query)
+    assert (columns[0]["unit"], columns[0]["native_unit"]) == ("MW", "MWh")
+    assert table.values[:, 0].tolist() == [1.0, 2.0]  # hourly: an MWh per hour is an MW
+    columns, table, _ = browser.series({**query, "unit.de-smard:410": ["GWh"], "step": ["day"]})
+    assert columns[0]["unit"] == "GWh" and table.values[:, 0].tolist() == [0.003]
+    assert browser.to_csv(columns, table).decode().splitlines()[0].endswith("[GWh]")
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        ({"unit.de-smard:410": ["°C"]}, "can't convert MWh to °C"),
+        ({"unit.de-smard:4068": ["MW"]}, "not picked"),
+        ({"step": ["week"]}, "step must be one of"),
+    ],
+)
+def test_bad_transformations(extra, message):
+    with pytest.raises(RequestError, match=message):
+        browser.series({"d": ["de-smard:410"], **extra})
+
 @pytest.fixture
 def server():
     httpd = browser.ThreadingHTTPServer(("127.0.0.1", 0), browser.Handler)

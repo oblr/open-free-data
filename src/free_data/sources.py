@@ -259,14 +259,14 @@ def _zone(zone: str | tzinfo) -> tzinfo:
 def aggregate(
     time: np.ndarray, values: np.ndarray, resolution: str, zone: str | tzinfo, how: str = "mean"
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Means (or sums) per hour or per day in `zone`, labelled with its start; NaN where it has no value.
+    """Means (or sums) per hour, day or month in `zone`, labelled with its start; NaN where it has no value.
 
     `time` is epoch ms (UTC), sorted; `values` has one column per series.
     Hours are UTC hours, which are local hours in any zone a whole number
     of hours off UTC.
     """
-    if resolution not in ("hour", "day"):
-        raise ValueError(f"aggregates are per hour or day, not {resolution!r}")
+    if resolution not in ("hour", "day", "month"):
+        raise ValueError(f"aggregates are per hour, day or month, not {resolution!r}")
     if how not in ("mean", "sum"):
         raise ValueError(f"how is 'mean' or 'sum', not {how!r}")
     if not len(time):
@@ -276,8 +276,10 @@ def aggregate(
     else:
         tz = _zone(zone)
         first, last = (datetime.fromtimestamp(t / 1000, tz).date() for t in (time[0], time[-1]))
-        days = np.arange(np.datetime64(first, "D"), np.datetime64(last, "D") + np.timedelta64(2, "D"))
-        edges = np.array([epoch_ms(datetime.fromisoformat(str(d)), tz) for d in days], np.int64)
+        step = "D" if resolution == "day" else "M"
+        periods = np.arange(np.datetime64(first, step), np.datetime64(last, step) + np.timedelta64(2, step))
+        edges = np.array([epoch_ms(datetime.fromisoformat(str(p.astype("datetime64[D]"))), tz) for p in periods],
+                         np.int64)
         bins = edges[np.searchsorted(edges, time, side="right") - 1]
     labels, group = np.unique(bins, return_inverse=True)
     present = ~np.isnan(values)

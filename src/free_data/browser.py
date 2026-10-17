@@ -18,6 +18,7 @@ API (all GET):
     /api/sources                    sources, their options and whether they have a plugin
     /api/sources/<id>/datasets      the datasets of one plugged-in source
     /api/series?d=<source>:<dataset>&d=...&<source>.<option>=<value>&start=<date>&end=<date>[&format=csv]
+                [&unit.<source>:<dataset>=<unit>][&step=hour|day|month]   (see transforms.py)
     /api/vocabulary                 the terms of vocabulary.py and units.py
     /api/related?d=<source>:<dataset>&d=...   series related to these (see relations.py)
 """
@@ -38,7 +39,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import numpy as np
 
-from free_data import relations, sources, units, vocabulary
+from free_data import relations, sources, transforms, units, vocabulary
 from free_data.cache import FetchError
 
 WEB = Path(__file__).with_name("web")  # installed from a wheel
@@ -127,6 +128,9 @@ def series(query: dict[str, list[str]]) -> tuple[list[dict], sources.Table, np.n
 
     Sources on different grids leave NaN in each other's columns. Those are
     not gaps in the data, so the page joins across them instead.
+
+    `unit.<source>:<dataset>` converts a dataset to another unit and `step`
+    aggregates every dataset, each in its source's timezone (transforms.py).
     """
     wanted: dict[str, list[str]] = {}  # source -> datasets, in the order asked for
     for item in query.get("d", []):
@@ -136,8 +140,15 @@ def series(query: dict[str, list[str]]) -> tuple[list[dict], sources.Table, np.n
         wanted.setdefault(source, []).append(dataset)
     if not wanted:
         raise RequestError("pick at least one dataset")
+    targets = {k.removeprefix("unit."): v[0] for k, v in query.items() if k.startswith("unit.") and v[0]}
+    for key in targets:
+        source, _, dataset = key.partition(":")
+        if dataset not in wanted.get(source, []):
+            raise RequestError(f"a unit for {key!r}, which is not picked")
+    step = query.get("step", [""])[0]
 
     tables = []
+    unit_of: dict[str, str] = {}  # column -> its unit after the transformation
     for source, ids in wanted.items():
         p = plugin(source)
         given = {k.split(".", 1)[1]: v[0] for k, v in query.items() if k.startswith(f"{source}.")}
@@ -149,7 +160,16 @@ def series(query: dict[str, list[str]]) -> tuple[list[dict], sources.Table, np.n
         end = moment(query.get("end", [None])[0], p.timezone, end=True)
         if start and end and start > end:
             raise RequestError("the start date is after the end date")
-        tables.append((source, p.read(ids, start, end, options)))
+        transform = transforms.Transform(
+            {k.partition(":")[2]: v for k, v in targets.items() if k.startswith(f"{source}:")}, step)
+        try:
+            transforms.check(transform, datasets(source))  # before the download
+        except ValueError as error:
+            raise RequestError(str(error)) from error
+        table, column_units = transforms.apply(p.read(ids, start, end, options), datasets(source), transform,
+                                               p.timezone)
+        tables.append((source, table))
+        unit_of.update({f"{source}:{c}": u for c, u in zip(table.columns, column_units, strict=True)})
 
     table = sources.merge(tables)
     on_grid = np.column_stack([np.isin(table.time, t.time) for _, t in tables for _ in t.columns])
@@ -158,7 +178,7 @@ def series(query: dict[str, list[str]]) -> tuple[list[dict], sources.Table, np.n
         source, _, dataset = key.partition(":")
         d = datasets(source)[dataset]
         columns.append({"key": key, "source": source, "dataset": dataset,
-                        "label": d.label, "group": d.group, "unit": d.unit})
+                        "label": d.label, "group": d.group, "unit": unit_of[key], "native_unit": d.unit})
     return columns, table, on_grid
 
 

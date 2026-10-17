@@ -38,7 +38,11 @@ is the browser).
 
 The browser lists every source in `src/free_data/data/`; those with a plugin can be
 plotted, also several sources side by side (one axis per unit), and
-downloaded as CSV. A source's first list of datasets can take up to a
+downloaded as CSV. Each selected series can be shown in another unit
+(the unit next to its name) and all of them aggregated per hour, day or
+month ("Aggregate"), so German solar in MWh per quarter hour and French
+solar in MW meet on one axis: SMARD's as MW, or both as GWh per day. A
+source's first list of datasets can take up to a
 minute (Hub'eau's station list); it is cached for a day. The browser binds
 to 127.0.0.1 and has no authentication.
 
@@ -52,6 +56,7 @@ All Python code is in the package `src/free_data/`:
 | `sources.py` | The plugin interface (`Plugin`, `Dataset`, `Option`, `Table`), discovery and the catalog. |
 | `vocabulary.py` | The shared terms for series metadata: variables, measures, regions. |
 | `units.py` | The unit table: dimensions, units and their spellings, and conversion. |
+| `transforms.py` | What the browser does to a series before showing it: another unit, totals or means per hour, day or month. |
 | `plugins/` | One module per readable source, each with a module-level `PLUGIN`. |
 | `cache.py` | Downloads, cached under `~/.cache/free-data/<source>/`. |
 | `smard.py` | Reader for SMARD, the Bundesnetzagentur's electricity market data. |
@@ -107,7 +112,10 @@ the rate it averages to (energy → power). `UNITS` maps each symbol to its
 dimension, its factor to the base unit, and the other spellings sources use.
 `vocabulary.MEASURES` lists the dimensions each measure allows.
 `units.convert(values, "MWh", "MW", hours=0.25)` converts within a dimension
-or from an amount to its rate. Heights above different datums (`cm` above
+or from an amount to its rate. `transforms.py` applies it to a whole series
+(`GET /api/series?...&unit.de-smard:4068=MW&step=day`), taking each value's
+interval as the time to the next one, and aggregates afterwards: amounts
+per interval (energy, precipitation, sunshine) are summed, the rest averaged. Heights above different datums (`cm` above
 the gauge zero, `m+NN`, `m+NHN`) are separate dimensions and don't convert;
 neither do turbidity units (their dimension has no base). A new spelling
 goes into its unit's `spellings`, a new unit into `UNITS`, a new kind of
@@ -143,6 +151,7 @@ All Python code is in the package `src/free_data/`:
 | `src/api.ts` | A typed client for `/api/*`. |
 | `src/plugins.ts` | The `FrontendPlugin` interface and its registry. |
 | `src/plugins/` | One frontend plugin per source that needs one, listed in `index.ts`. |
+| `src/transforms.ts` | The units a series converts to and the aggregation steps, for the page's controls. |
 | `src/state.ts`, `tree.ts`, `selection.ts`, `chart.ts`, `main.ts` | The page itself. |
 
 A frontend plugin is optional and only changes how a source looks; what a

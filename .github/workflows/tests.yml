@@ -43,6 +43,4 @@ jobs:
         with:
           node-version: "24"
       - run: npm ci
-      - run: npm run build
-      # web/dist is committed so the browser works without Node: it must match web/src
-      - run: git diff --exit-code -- dist
+      - run: npm run build  # web/dist isn't committed: the build is the check

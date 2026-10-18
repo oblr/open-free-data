@@ -4,7 +4,7 @@
 #     ./browser.sh                  # sets up .venv on the first run
 #     ./browser.sh --port 9000      # arguments go to the browser (--host, --port)
 #
-# The page needs web/dist; it is committed, and rebuilt here only when
+# The page needs web/dist, which isn't committed: it is built here when
 # missing (needs Node: cd web && npm install && npm run build).
 set -eu
 cd "$(dirname "$0")"

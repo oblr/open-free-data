@@ -96,7 +96,7 @@ All Python code is in the package `src/free_data/`:
 | `yahoo.py` | Reader for share and index prices from Yahoo Finance's unofficial chart endpoint (personal use only). |
 | `yahoo_symbols.json` | The shares and indices the browser offers from Yahoo Finance: the large German and French ones. |
 | `browser.py` | The local web server: the page and its JSON/CSV API. |
-| `web/` (top level) | The page: `index.html`, TypeScript in `src/`, compiled to `dist/` (committed; both ship in the wheel). |
+| `web/` (top level) | The page: `index.html`, TypeScript in `src/`, compiled to `dist/` (not committed; build it before a wheel, both ship in it). |
 
 The readers' command lines take inclusive dates in the source's timezone
 (a bare end date means the whole day) and default to the last 30 days.
@@ -199,9 +199,9 @@ of a share is about 70%.
 ## The browser page
 
 The page is TypeScript in `web/src`, compiled by `tsc` to plain ES modules
-in `web/dist`, which the browser loads directly (no bundler). `web/dist` is
-committed, so running the browser needs only Python; changing the page
-needs Node:
+in `web/dist`, which the browser loads directly (no bundler). `web/dist` isn't
+committed, so the browser needs Node once to build it (`./browser.sh`
+does that when it is missing), and again after changing the page:
 
     cd web && npm install && npm run build    # or: npm run watch
 
@@ -254,4 +254,4 @@ everything), so running a job twice downloads nothing the second time.
 The tests run offline against a temporary cache; any download attempt fails
 them. GitHub Actions (`.github/workflows/tests.yml`) runs ruff, and the tests
 on Python 3.11 and 3.14, on every push and pull request; it also builds
-`web/` and fails if the committed `web/dist` doesn't match `web/src`.
+`web/` and fails if the TypeScript doesn't compile.

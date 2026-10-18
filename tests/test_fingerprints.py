@@ -126,3 +126,30 @@ def test_read_reads_chunks_one_by_one_when_one_dataset_fails(monkeypatch):
     monkeypatch.setattr(sources_module, "discover", lambda: {"xx": Plugin()})
     found = fingerprints.read(["xx:a", "xx:b"], Window("2025-01-01", "2025-01-01", "hour"))
     assert list(found) == ["xx:a"]
+
+
+def test_store_lists_every_fingerprint_and_skips_broken_files(tmp_path):
+    store = Store(tmp_path)
+    store.save(fingerprints.Fingerprint("s:b", WINDOW))
+    store.save(fingerprints.Fingerprint("t:a/1", WINDOW))
+    (store.dir / "s" / "broken.json").write_text("{")
+    assert [f.key for f in store.all()] == ["s:b", "t:a/1"]
+
+
+def test_compare_on_the_command_line_compares_every_stored_pair(monkeypatch, capsys):
+    calls = []
+
+    def fake(keys, window, pairs=(), **kwargs):
+        calls.append(list(pairs))
+        return {k: fingerprints.Fingerprint(k, window) for pair in pairs for k in pair}
+
+    window = Window("2025-01-01", "2025-12-31")
+    for key in ("s:a", "s:b", "t:c"):
+        Store().save(fingerprints.Fingerprint(key, window, {"coverage": {"version": 1, "value": 1.0}}))
+    Store().save(fingerprints.Fingerprint("s:old", Window("2024-01-01", "2024-12-31"), {"coverage": {}}))
+    monkeypatch.setattr(fingerprints, "precompute", fake)
+    fingerprints.main(["--compare", "--start", "2025-01-01", "--end", "2025-12-31"])
+    assert calls == [[("s:a", "s:b"), ("s:a", "t:c"), ("s:b", "t:c")]]  # each once, other windows left out
+    assert "comparing 3 pairs" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        fingerprints.main([])

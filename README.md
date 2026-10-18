@@ -36,11 +36,20 @@ Python 3.11 or newer; the only dependency is numpy.
     free-data-ingest de-uba-luftdaten --match potsdam --start 2025-01-01 --end 2025-12-31
     free-data-fingerprints de-smard --all # features of every cached SMARD series over last year
     free-data-fingerprints de-uba-luftdaten --match potsdam --start 2024-01-01 --end 2025-12-31 --download
+    free-data-fingerprints --compare      # how every stored pair's remainders move together, and the lag
     free-data-cache                       # what is cached, per source
     free-data-cache clear de-smard --older-than 30d
 
 Each command is also `python -m free_data.<module>` (`python -m free_data`
 is the browser).
+
+The browser shows the stored fingerprints of the selected series under
+"Fingerprints"; it only reads them, so compute them first with
+`free-data-fingerprints`. Its Fingerprints view lists every stored one;
+pick one to see the series whose surprises (what the calendar doesn't
+explain) move with its own and how many hours later, measured by
+`free-data-fingerprints --compare`, and those whose average day and year
+look alike (`similarity.py`).
 
 The browser lists every source in `src/free_data/data/`; those with a plugin can be
 plotted, also several sources side by side (one axis per unit), and
@@ -67,7 +76,8 @@ All Python code is in the package `src/free_data/`:
 | `plugins/` | One module per readable source, each with a module-level `PLUGIN`. |
 | `cache.py` | Downloads, cached under `~/.cache/free-data/<source>/`, throttled per host. |
 | `ingest.py` | Background downloads into the cache: jobs per source, nothing cached fetched twice. |
-| `measurements.py` | The features `fingerprints.py` stores for every series. |
+| `measurements.py` | The features `fingerprints.py` stores for every series, the calendar model of what's left, and the lagged correlation of two series' remainders. |
+| `similarity.py` | Which series look alike, and with what lag, from the daily and yearly profiles in their fingerprints. |
 | `smard.py` | Reader for SMARD, the Bundesnetzagentur's electricity market data. |
 | `eco2mix.py` | Reader for RTE éCO2mix, France's electricity mix (via ODRÉ). |
 | `pegelonline.py` | Reader for PEGELONLINE, the gauges of the German federal waterways (last 31 days only). |

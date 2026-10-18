@@ -21,6 +21,12 @@ API (all GET):
                 [&unit.<source>:<dataset>=<unit>][&step=hour|day|month]   (see transforms.py)
     /api/vocabulary                 the terms of vocabulary.py and units.py
     /api/related?d=<source>:<dataset>&d=...   series related to these (see relations.py)
+    /api/fingerprints?d=<source>:<dataset>&d=...   their stored fingerprints, by key; only read, never
+                                    computed (free-data-fingerprints does that, see fingerprints.py)
+    /api/fingerprints/all           every stored fingerprint, without its comparisons
+    /api/similar?d=<source>:<dataset>   the stored fingerprints most like this one (see similarity.py)
+    /api/moves-with?d=<source>:<dataset>   how the others' remainders move with its own, and the lag
+                                    (stored by free-data-fingerprints --compare, see similarity.moves_with)
 """
 
 from __future__ import annotations
@@ -39,7 +45,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import numpy as np
 
-from free_data import relations, sources, transforms, units, vocabulary
+from free_data import fingerprints, relations, similarity, sources, transforms, units, vocabulary
 from free_data.cache import FetchError
 
 WEB = Path(__file__).with_name("web")  # installed from a wheel
@@ -90,6 +96,52 @@ def related(query: dict[str, list[str]]) -> list[dict]:
     if not targets:
         raise RequestError("pick at least one dataset")
     return [asdict(r) for r in relations.related(targets, entries)]
+
+
+def stored_fingerprints(query: dict[str, list[str]]) -> dict[str, dict]:
+    """The fingerprints in the cache of the datasets asked for; those without one are left out."""
+    keys = query.get("d", [])
+    if not keys:
+        raise RequestError("pick at least one dataset")
+    store = fingerprints.Store()
+    found = {}
+    for key in keys:
+        try:
+            fingerprint = store.load(key)
+        except ValueError as error:
+            raise RequestError(str(error)) from error
+        if fingerprint:
+            found[key] = asdict(fingerprint)
+    return found
+
+
+def all_fingerprints() -> list[dict]:
+    return [{"key": fp.key, "window": asdict(fp.window), "features": fp.features}
+            for fp in fingerprints.Store().all()]
+
+
+def _target(query: dict[str, list[str]]) -> tuple[fingerprints.Fingerprint, fingerprints.Store]:
+    key = query.get("d", [""])[0]
+    if not key:
+        raise RequestError("pick a dataset")
+    store = fingerprints.Store()
+    try:
+        target = store.load(key)
+    except ValueError as error:
+        raise RequestError(str(error)) from error
+    if target is None:
+        raise RequestError(f"no fingerprint for {key!r}; free-data-fingerprints computes it")
+    return target, store
+
+
+def similar(query: dict[str, list[str]]) -> list[dict]:
+    target, store = _target(query)
+    return [asdict(s) for s in similarity.similar(target, store.all())]
+
+
+def moves_with(query: dict[str, list[str]]) -> list[dict]:
+    target, store = _target(query)
+    return similarity.moves_with(target, store.all())
 
 
 @cache
@@ -212,6 +264,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(HTTPStatus.OK, vocabulary_terms())
             elif parts == ["api", "related"]:
                 self._json(HTTPStatus.OK, related(query))
+            elif parts == ["api", "fingerprints"]:
+                self._json(HTTPStatus.OK, stored_fingerprints(query))
+            elif parts == ["api", "fingerprints", "all"]:
+                self._json(HTTPStatus.OK, all_fingerprints())
+            elif parts == ["api", "similar"]:
+                self._json(HTTPStatus.OK, similar(query))
+            elif parts == ["api", "moves-with"]:
+                self._json(HTTPStatus.OK, moves_with(query))
             elif parts == ["api", "series"]:
                 columns, table, on_grid = series(query)
                 if query.get("format", ["json"])[0] == "csv":

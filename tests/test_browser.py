@@ -6,9 +6,10 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
 
+import numpy as np
 import pytest
 
-from free_data import browser
+from free_data import browser, fingerprints
 from free_data.browser import RequestError
 
 
@@ -143,3 +144,32 @@ def test_vocabulary_and_related_endpoints(server, smard_files, pegelonline_stati
     assert found["de-dwd-opendata:03987/SD_SO"]["relation"] == "driver"
     assert get(f"{server}/api/related?d=de-smard:nope")[0] == 400
     assert get(f"{server}/api/related")[0] == 400
+
+
+def test_fingerprints_endpoint_reads_the_store(server):
+    window = fingerprints.Window("2025-01-01", "2025-12-31")
+    fingerprints.Store().save(fingerprints.Fingerprint(
+        "de-smard:410", window, {"coverage": {"version": 1, "value": 0.5}}))
+    status, body = get(f"{server}/api/fingerprints?d=de-smard:410&d=de-smard:4068")
+    found = json.loads(body)
+    assert status == 200 and list(found) == ["de-smard:410"]  # 4068 has none: left out, not computed
+    assert found["de-smard:410"]["window"] == {"start": "2025-01-01", "end": "2025-12-31", "step": "hour"}
+    assert found["de-smard:410"]["features"]["coverage"]["value"] == 0.5
+    assert get(f"{server}/api/fingerprints")[0] == 400
+    assert get(f"{server}/api/fingerprints?d=..:x")[0] == 400  # not under the store
+
+
+def test_all_fingerprints_and_similar_endpoints(server):
+    window = fingerprints.Window("2025-01-01", "2025-12-31")
+    hours = np.arange(24)
+    for key, peak in [("de-smard:410", 12), ("de-smard:4068", 14)]:
+        fingerprints.Store().save(fingerprints.Fingerprint(key, window, {
+            "profile.day": {"version": 1, "value": np.cos(2 * np.pi * (hours - peak) / 24).tolist()},
+            "cycle.strength": {"version": 1, "value": {"day": 0.5}}}))
+    status, body = get(f"{server}/api/fingerprints/all")
+    assert status == 200 and {f["key"] for f in json.loads(body)} == {"de-smard:410", "de-smard:4068"}
+    status, body = get(f"{server}/api/similar?d=de-smard:410")
+    found = json.loads(body)
+    assert status == 200 and found[0]["key"] == "de-smard:4068" and found[0]["day"]["lag"] == 2
+    assert get(f"{server}/api/similar?d=de-smard:1")[0] == 400  # no fingerprint
+    assert get(f"{server}/api/similar")[0] == 400

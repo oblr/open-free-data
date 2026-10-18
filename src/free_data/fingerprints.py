@@ -154,6 +154,17 @@ class Store:
         raw = json.loads(path.read_text())
         return Fingerprint(raw["key"], Window(**raw["window"]), raw["features"], raw["comparisons"])
 
+    def all(self) -> list[Fingerprint]:
+        """Every stored fingerprint, by source and dataset; a file that can't be read is skipped."""
+        found = []
+        for path in sorted(self.dir.glob("*/*.json")):
+            try:
+                raw = json.loads(path.read_text())
+                found.append(Fingerprint(raw["key"], Window(**raw["window"]), raw["features"], raw["comparisons"]))
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                log.warning("%s: skipping, can't read it: %s", path, error)
+        return found
+
     def save(self, fingerprint: Fingerprint) -> None:
         path = self.path(fingerprint.key)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -274,7 +285,11 @@ def precompute(
     for a, b, m in todo_pairs:
         if a not in series or b not in series:
             continue
-        value = _clean(m.function(*align(series[a], series[b])))
+        try:
+            value = _clean(m.function(*align(series[a], series[b])))
+        except Exception as error:  # noqa: BLE001 (as for features)
+            log.warning("%s, %s: %s failed: %s", a, b, m.name, error)
+            continue
         sides = [(a, b), (b, a)] if m.symmetric else [(a, b)]
         for this, other in sides:
             entry = prints[this].comparisons.get(m.name)
@@ -312,7 +327,8 @@ def _clean(value: object) -> Value:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """free-data-fingerprints: compute the registered features of cached series, and show them."""
+    """free-data-fingerprints: compute the registered features of cached series, and show them; with --compare,
+    also how their remainders move with every other stored series."""
     import argparse  # noqa: PLC0415 (only the command line needs these)
     import sys  # noqa: PLC0415
     from datetime import date  # noqa: PLC0415
@@ -321,7 +337,7 @@ def main(argv: list[str] | None = None) -> None:
 
     last_year = date.today().year - 1
     parser = argparse.ArgumentParser(description="Compute fingerprints of series, from the cache by default.")
-    parser.add_argument("source", help="a source id with a plugin, e.g. de-smard")
+    parser.add_argument("source", nargs="?", help="a source id with a plugin, e.g. de-smard")
     parser.add_argument("datasets", nargs="*", help="dataset ids")
     parser.add_argument("--all", action="store_true", help="every dataset of the source; those not cached are skipped")
     parser.add_argument("--match", nargs="+", metavar="WORD", help="the datasets whose names contain these words")
@@ -330,12 +346,22 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--step", choices=transforms.STEPS, default="hour")
     parser.add_argument("--download", action="store_true",
                         help="download what isn't cached (throttled) instead of skipping it")
+    parser.add_argument("--compare", action="store_true",
+                        help="also compare them with every stored fingerprint over the same window (remainder.lag); "
+                             "without a source, compare every stored pair")
     parser.add_argument("--json", action="store_true", help="the fingerprints as JSON, one per line")
     parser.add_argument("-v", "--verbose", action="store_true", help="also why each skipped dataset was skipped")
     args = parser.parse_args(argv)
 
     logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S", level=logging.WARNING)
     logging.getLogger("free_data").setLevel(logging.INFO if args.verbose else logging.WARNING)
+    window = Window(args.start, args.end, args.step)
+    if args.source is None:
+        if not args.compare:
+            parser.error("name a source, or use --compare alone to compare every stored fingerprint")
+        with cache.refreshing("never" if args.download else "offline"):
+            _compare([], window)
+        return
     if args.source not in sources.discover():
         parser.error(f"no plugin for source {args.source!r}")
     plugin = sources.discover()[args.source]
@@ -353,9 +379,10 @@ def main(argv: list[str] | None = None) -> None:
             parser.error("name datasets, or use --match or --all")
         if unknown := [i for i in ids if i not in datasets]:
             parser.error(f"unknown datasets of {args.source}: {', '.join(unknown[:5])}")
-        window = Window(args.start, args.end, args.step)
         keys = [f"{args.source}:{i}" for i in dict.fromkeys(ids)]
         prints = precompute(keys, window)
+        if args.compare:
+            _compare([k for k in keys if prints[k].features], window)
 
     found = [prints[k] for k in keys if prints[k].features]
     if args.json:
@@ -371,6 +398,46 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(1)
 
 
+RELATIONS_SHOWN = 25
+
+
+def _compare(keys: list[str], window: Window) -> None:
+    """Compares `keys` (all stored, if empty) with every stored fingerprint over the window; prints the strongest."""
+    import sys  # noqa: PLC0415
+
+    stored = [fp.key for fp in Store().all() if fp.window == window and fp.features]
+    pairs = sorted({tuple(sorted((a, b))) for a in (keys or stored) for b in stored if a != b})
+    if not pairs:
+        print(f"nothing to compare: no other fingerprints over {window.start} to {window.end}", file=sys.stderr)
+        return
+    print(f"comparing {len(pairs)} pairs ...", file=sys.stderr)
+    prints = precompute([], window, pairs)  # each pair once, stored under its first: the lag reads the other way
+    found = [(a, b, prints[a].compared("remainder.lag").get(b)) for a, b in pairs]
+    found = sorted((x for x in found if x[2] and x[2].get("r") is not None), key=lambda x: -abs(x[2]["r"]))
+    names = _names({k for a, b, _ in found[:RELATIONS_SHOWN] for k in (a, b)})
+    print(f"\n{'r':>5} {'lag':>5} {'r Δ':>5} {'lag Δ':>5}  series (lag > 0: the second follows the first)")
+    for a, b, v in found[:RELATIONS_SHOWN]:
+        change = "-" if v["r_change"] is None else f"{v['r_change']:.2f}"
+        print(f"{v['r']:5.2f} {v['lag_h']:+4d}h {change:>5} {v['lag_change_h'] or 0:+4d}h  {names[a]}  ~  {names[b]}")
+    print(f"{len(found)} of {len(pairs)} pairs related over {window.start} to {window.end}"
+          + (f"; the strongest {RELATIONS_SHOWN} shown" if len(found) > RELATIONS_SHOWN else ""), file=sys.stderr)
+
+
+def _names(keys: set[str]) -> dict[str, str]:
+    """"<source> <group> / <label>" for each key, or the key where the source's datasets can't be listed."""
+    names = {k: k for k in keys}
+    for source in {k.partition(":")[0] for k in keys}:
+        try:
+            datasets = {d.id: d for d in sources.discover()[source].datasets()}
+        except Exception:  # noqa: BLE001, S112 (a name is a nicety)
+            continue
+        for k in keys:
+            d = datasets.get(k.partition(":")[2]) if k.startswith(source + ":") else None
+            if d:
+                names[k] = f"{source} {d.group} / {d.label}" if d.group else f"{source} {d.label}"
+    return names
+
+
 def _table(found: list[Fingerprint], datasets: dict[str, sources.Dataset]) -> None:
     def num(value: Value, digits: int = 3) -> str:
         return "-" if value is None else f"{value:.{digits}g}"
@@ -379,7 +446,7 @@ def _table(found: list[Fingerprint], datasets: dict[str, sources.Dataset]) -> No
         return "-" if value is None else f"{100 * value:.0f}%"
 
     head = (f"{'dataset':<42} {'cover':>5} {'mean':>9} {'std':>9} {'unit':<8} {'zero':>4} "
-            f"{'day':>4} {'week':>4} {'year':>4} {'ac24h':>5} {'trend/y':>8}")
+            f"{'day':>4} {'week':>4} {'year':>4} {'ac24h':>5} {'trend/y':>8} {'left':>4} {'memory':>6}")
     print(head)
     print("-" * len(head))
     for fp in found:
@@ -387,10 +454,13 @@ def _table(found: list[Fingerprint], datasets: dict[str, sources.Dataset]) -> No
         s = fp.feature("summary") or {}
         c = fp.feature("cycle.strength") or {}
         a = fp.feature("autocorr") or {}
+        decorrelation = (fp.feature("remainder.memory") or {}).get("decorrelation_h")
+        memory = "-" if not fp.feature("remainder.memory") else ">2wk" if decorrelation is None else f"{decorrelation:.0f}h"
         name = f"{d.id} {d.label}"
         print(f"{name[:42]:<42} {pct(fp.feature('coverage')):>5} {num(s.get('mean')):>9} {num(s.get('std')):>9} "
               f"{d.unit[:8]:<8} {pct(fp.feature('zero_share')):>4} {pct(c.get('day')):>4} {pct(c.get('week')):>4} "
-              f"{pct(c.get('year')):>4} {num(a.get('24h'), 2):>5} {num(fp.feature('trend')):>8}")
+              f"{pct(c.get('year')):>4} {num(a.get('24h'), 2):>5} {num(fp.feature('trend')):>8} "
+              f"{pct(fp.feature('remainder.share')):>4} {memory:>6}")
 
 
 if __name__ == "__main__":

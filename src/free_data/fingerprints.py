@@ -37,6 +37,7 @@ NaN and infinities are stored as None.
 from __future__ import annotations
 
 import json
+import logging
 import math
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
@@ -46,6 +47,9 @@ import numpy as np
 
 from free_data import cache, relations, sources, transforms
 
+log = logging.getLogger(__name__)
+
+CHUNK = 25  # datasets per plugin.read; a chunk that fails is read one by one
 FOLDER = "_fingerprints"  # in the cache root, next to the sources' folders
 
 Value = float | int | None | list | dict
@@ -164,7 +168,11 @@ Reader = Callable[[list[str], Window], dict[str, Series]]
 
 
 def read(keys: list[str], window: Window) -> dict[str, Series]:
-    """The datasets over the window, through their plugins and the cache, at the window's step."""
+    """The datasets over the window, through their plugins and the cache, at the window's step.
+
+    A dataset that can't be read (under cache.refreshing("offline"): one
+    whose files aren't all cached) is left out and logged; the rest are read.
+    """
     wanted: dict[str, list[str]] = {}
     for key in keys:
         source, _, dataset = key.partition(":")
@@ -172,16 +180,32 @@ def read(keys: list[str], window: Window) -> dict[str, Series]:
     found = {}
     for source, ids in wanted.items():
         plugin = sources.discover()[source]
-        described = {d.id: d for d in plugin.datasets()}
+        try:
+            described = {d.id: d for d in plugin.datasets()}
+        except Exception as error:  # noqa: BLE001 (e.g. its dataset list isn't cached)
+            log.warning("%s: can't list its datasets, skipping %d: %s", source, len(ids), error)
+            continue
         start = sources.moment(window.start, plugin.timezone, end=False)
         end = sources.moment(window.end, plugin.timezone, end=True)
-        table = plugin.read(ids, start, end, plugin.resolve({}))
-        table, column_units = transforms.apply(table, described, transforms.Transform(step=window.step),
-                                               plugin.timezone)
-        for i, (dataset, unit) in enumerate(zip(table.columns, column_units, strict=True)):
-            found[f"{source}:{dataset}"] = Series(f"{source}:{dataset}", described[dataset], table.time,
-                                                  table.values[:, i], unit, plugin.timezone, window)
+        for i in range(0, len(ids), CHUNK):
+            for table in _tables(plugin, ids[i:i + CHUNK], start, end):
+                table, column_units = transforms.apply(table, described, transforms.Transform(step=window.step),
+                                                       plugin.timezone)
+                for j, (dataset, unit) in enumerate(zip(table.columns, column_units, strict=True)):
+                    found[f"{source}:{dataset}"] = Series(f"{source}:{dataset}", described[dataset], table.time,
+                                                          table.values[:, j], unit, plugin.timezone, window)
     return found
+
+
+def _tables(plugin: sources.Plugin, ids: list[str], start, end) -> list[sources.Table]:
+    """The chunk as one table, or, if that fails, a table per dataset that can be read."""
+    try:
+        return [plugin.read(ids, start, end, plugin.resolve({}))]
+    except Exception as error:  # noqa: BLE001 (one unreadable dataset doesn't stop the others)
+        if len(ids) == 1:
+            log.info("%s: skipping %s: %s", plugin.id, ids[0], error)
+            return []
+    return [t for dataset in ids for t in _tables(plugin, [dataset], start, end)]
 
 
 def align(a: Series, b: Series) -> tuple[Series, Series]:
@@ -237,10 +261,19 @@ def precompute(
     series = reader(sorted(needed), window)
     changed = set()
     for key, ms in todo_features.items():
+        if key not in series:  # couldn't be read: nothing stored, so a later run tries again
+            continue
         for m in ms:
-            prints[key].features[m.name] = {"version": m.version, "value": _clean(m.function(series[key]))}
+            try:
+                value = _clean(m.function(series[key]))
+            except Exception as error:  # noqa: BLE001 (a failing measurement is logged, the others still run)
+                log.warning("%s: %s failed: %s", key, m.name, error)
+                continue
+            prints[key].features[m.name] = {"version": m.version, "value": value}
             changed.add(key)
     for a, b, m in todo_pairs:
+        if a not in series or b not in series:
+            continue
         value = _clean(m.function(*align(series[a], series[b])))
         sides = [(a, b), (b, a)] if m.symmetric else [(a, b)]
         for this, other in sides:
@@ -273,3 +306,92 @@ def _clean(value: object) -> Value:
     if isinstance(value, float) and not math.isfinite(value):
         return None
     return value
+
+
+# ---- command line ----
+
+
+def main(argv: list[str] | None = None) -> None:
+    """free-data-fingerprints: compute the registered features of cached series, and show them."""
+    import argparse  # noqa: PLC0415 (only the command line needs these)
+    import sys  # noqa: PLC0415
+    from datetime import date  # noqa: PLC0415
+
+    from free_data import ingest, measurements  # noqa: F401, PLC0415 (measurements registers the features)
+
+    last_year = date.today().year - 1
+    parser = argparse.ArgumentParser(description="Compute fingerprints of series, from the cache by default.")
+    parser.add_argument("source", help="a source id with a plugin, e.g. de-smard")
+    parser.add_argument("datasets", nargs="*", help="dataset ids")
+    parser.add_argument("--all", action="store_true", help="every dataset of the source; those not cached are skipped")
+    parser.add_argument("--match", nargs="+", metavar="WORD", help="the datasets whose names contain these words")
+    parser.add_argument("--start", default=f"{last_year}-01-01", help="window start (default: last year)")
+    parser.add_argument("--end", default=f"{last_year}-12-31", help="window end, inclusive")
+    parser.add_argument("--step", choices=transforms.STEPS, default="hour")
+    parser.add_argument("--download", action="store_true",
+                        help="download what isn't cached (throttled) instead of skipping it")
+    parser.add_argument("--json", action="store_true", help="the fingerprints as JSON, one per line")
+    parser.add_argument("-v", "--verbose", action="store_true", help="also why each skipped dataset was skipped")
+    args = parser.parse_args(argv)
+
+    logging.basicConfig(format="%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S", level=logging.WARNING)
+    logging.getLogger("free_data").setLevel(logging.INFO if args.verbose else logging.WARNING)
+    if args.source not in sources.discover():
+        parser.error(f"no plugin for source {args.source!r}")
+    plugin = sources.discover()[args.source]
+    with cache.refreshing("never" if args.download else "offline"):
+        try:
+            datasets = {d.id: d for d in plugin.datasets()}
+        except cache.NotCached as error:
+            parser.error(f"{args.source}: its dataset list isn't cached ({error}); run with --download once")
+        ids = list(args.datasets)
+        if args.match:
+            ids += ingest._matching(args.source, args.match)
+        if args.all:
+            ids = list(datasets)
+        if not ids:
+            parser.error("name datasets, or use --match or --all")
+        if unknown := [i for i in ids if i not in datasets]:
+            parser.error(f"unknown datasets of {args.source}: {', '.join(unknown[:5])}")
+        window = Window(args.start, args.end, args.step)
+        keys = [f"{args.source}:{i}" for i in dict.fromkeys(ids)]
+        prints = precompute(keys, window)
+
+    found = [prints[k] for k in keys if prints[k].features]
+    if args.json:
+        for fp in found:
+            print(json.dumps(asdict(fp), ensure_ascii=False))
+    else:
+        _table(found, datasets)
+    skipped = len(keys) - len(found)
+    print(f"{len(found)} fingerprints over {window.start} to {window.end} per {window.step}"
+          + (f"; {skipped} datasets skipped, not cached (--download fetches them, -v says why)" if skipped else "")
+          + f"\nstored in {Store().dir / args.source}", file=sys.stderr)
+    if not found:
+        sys.exit(1)
+
+
+def _table(found: list[Fingerprint], datasets: dict[str, sources.Dataset]) -> None:
+    def num(value: Value, digits: int = 3) -> str:
+        return "-" if value is None else f"{value:.{digits}g}"
+
+    def pct(value: Value) -> str:
+        return "-" if value is None else f"{100 * value:.0f}%"
+
+    head = (f"{'dataset':<42} {'cover':>5} {'mean':>9} {'std':>9} {'unit':<8} {'zero':>4} "
+            f"{'day':>4} {'week':>4} {'year':>4} {'ac24h':>5} {'trend/y':>8}")
+    print(head)
+    print("-" * len(head))
+    for fp in found:
+        d = datasets[fp.key.partition(":")[2]]
+        s = fp.feature("summary") or {}
+        c = fp.feature("cycle.strength") or {}
+        a = fp.feature("autocorr") or {}
+        name = f"{d.id} {d.label}"
+        print(f"{name[:42]:<42} {pct(fp.feature('coverage')):>5} {num(s.get('mean')):>9} {num(s.get('std')):>9} "
+              f"{d.unit[:8]:<8} {pct(fp.feature('zero_share')):>4} {pct(c.get('day')):>4} {pct(c.get('week')):>4} "
+              f"{pct(c.get('year')):>4} {num(a.get('24h'), 2):>5} {num(fp.feature('trend')):>8}")
+
+
+if __name__ == "__main__":
+    main()

@@ -34,6 +34,8 @@ Python 3.11 or newer; the only dependency is numpy.
     free-data-uba DEBB021/NO2 DEBB021/PM10 --start 2025-01-01 --end 2025-01-31
     free-data-ingest de-smard 410 4169 --start 2025-01-01 --end 2025-12-31   # download ahead of time
     free-data-ingest de-uba-luftdaten --match potsdam --start 2025-01-01 --end 2025-12-31
+    free-data-fingerprints de-smard --all # features of every cached SMARD series over last year
+    free-data-fingerprints de-uba-luftdaten --match potsdam --start 2024-01-01 --end 2025-12-31 --download
     free-data-cache                       # what is cached, per source
     free-data-cache clear de-smard --older-than 30d
 

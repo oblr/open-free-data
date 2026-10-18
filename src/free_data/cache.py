@@ -27,7 +27,8 @@ does this):
     with cache.refreshing("never"):   # any cached file is used, however old
         plugin.read(...)
     "stale" (the default) refetches what is older than its max_age,
-    "always" refetches everything.
+    "always" refetches everything, and "offline" never downloads: a file
+    that isn't cached raises NotCached.
 
 The setting follows the work into reader threads started through Pool
 (a ThreadPoolExecutor that carries the caller's context), as does
@@ -71,7 +72,7 @@ MAX_HOLD = 15 * 60.0  # the longest a Retry-After holds a host
 RATE = float(os.environ.get("FREE_DATA_RATE") or 2.0)  # requests per second to one host; 0 = no limit
 HOST_RATES: dict[str, float] = {}  # per host, over RATE
 MIN_RATE = 0.1  # what repeated 429s can bring a host down to
-REFRESH = ("never", "stale", "always")
+REFRESH = ("offline", "never", "stale", "always")
 LONG_WAIT = 5.0  # a throttle wait longer than this is logged
 
 log = logging.getLogger(__name__)
@@ -98,6 +99,17 @@ def root() -> Path:
     if os.environ.get("FREE_DATA_CACHE"):
         return Path(os.environ["FREE_DATA_CACHE"])
     return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "free-data"
+
+
+class NotCached(FetchError):
+    """A file that isn't in the cache, asked for under refreshing("offline")."""
+
+    def __init__(self, url: str, path: Path) -> None:
+        super().__init__(url, None, f"not cached: {path}")
+
+    @property
+    def transient(self) -> bool:
+        return False
 
 
 class Throttle:
@@ -202,6 +214,8 @@ class Cache:
             log.debug("%s: cached %s", self.source, key)
             _count("cached")
             return target.read_bytes()
+        if _refresh.get() == "offline":
+            raise NotCached(url, target)
         try:
             body, seconds = _download_with_retries(url)
         except FetchError as error:
@@ -223,7 +237,7 @@ class Cache:
         mode = _refresh.get()
         if mode == "always":
             return False
-        if mode == "never" or max_age is None:
+        if mode in ("never", "offline") or max_age is None:
             return True
         return time.time() - target.stat().st_mtime < max_age
 

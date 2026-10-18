@@ -136,3 +136,14 @@ def test_retries_give_up_after_three_tries(downloads):
     with pytest.raises(FetchError):
         Cache("x").fetch("u", "k")
     assert downloads.calls == 3
+
+
+def test_offline_uses_any_cached_file_and_never_downloads(downloads):
+    store = Cache("x")
+    store.fetch("u", "k")
+    age(store.path("k"), 3600)
+    with cache.refreshing("offline"):
+        assert store.fetch("u", "k", max_age=0) == b"new"
+        with pytest.raises(cache.NotCached, match="not cached"):
+            store.fetch("u", "missing")
+    assert downloads.calls == 1

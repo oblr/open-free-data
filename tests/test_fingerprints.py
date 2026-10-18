@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from free_data import cache as cache_module
 from free_data import fingerprints
+from free_data import sources as sources_module
 from free_data.fingerprints import Measurement, Series, Store, Window
 from free_data.sources import Dataset
 
@@ -96,3 +98,31 @@ def test_reads_through_the_plugins(smard_files):
     window = Window("2024-01-01T00:00", "2024-01-01T06:00", "hour")
     found = fingerprints.read(["de-smard:410"], window)
     assert found["de-smard:410"].values[:2].tolist() == [1.0, 2.0] and found["de-smard:410"].zone == "Europe/Berlin"
+
+
+def test_unreadable_datasets_are_skipped_and_tried_again_later():
+    reader = Reader()
+    readable = lambda keys, window: {k: DATA[k] for k in keys if k != "s:b"}  # noqa: E731
+    prints = run(readable, keys=("s:a", "s:b"))
+    assert prints["s:a"].feature("mean") == 2.5 and prints["s:b"].features == {}
+    assert Store().load("s:b") is None  # nothing stored for it
+    run(reader, keys=("s:a", "s:b"))
+    assert reader.calls == [["s:b"]]  # only the one that was missing
+
+
+def test_read_reads_chunks_one_by_one_when_one_dataset_fails(monkeypatch):
+    class Plugin(sources_module.Plugin):
+        id, title, timezone = "xx", "X", "UTC"
+
+        def datasets(self):
+            return [Dataset(i, i, unit="MW", measure="power") for i in ("a", "b")]
+
+        def read(self, datasets, start, end, options):
+            if "b" in datasets:
+                raise cache_module.NotCached("u", "b.json")
+            time = np.array(["2025-01-01T00", "2025-01-01T01"], "datetime64[ms]")
+            return sources_module.Table(tuple(datasets), time, np.ones((2, len(datasets))))
+
+    monkeypatch.setattr(sources_module, "discover", lambda: {"xx": Plugin()})
+    found = fingerprints.read(["xx:a", "xx:b"], Window("2025-01-01", "2025-01-01", "hour"))
+    assert list(found) == ["xx:a"]

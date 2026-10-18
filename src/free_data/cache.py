@@ -73,6 +73,7 @@ MAX_HOLD = 15 * 60.0  # the longest a Retry-After holds a host
 RATE = float(os.environ.get("FREE_DATA_RATE") or 2.0)  # requests per second to one host; 0 = no limit
 HOST_RATES: dict[str, float] = {  # per host, over RATE
     "query1.finance.yahoo.com": 0.5,  # Yahoo Finance (yahoo.py) doesn't say what it allows
+    "www.bast.de": 1.0,  # answers 503 to two requests a second (bast.py)
 }
 MIN_RATE = 0.1  # what repeated 429s can bring a host down to
 REFRESH = ("offline", "never", "stale", "always")
@@ -234,6 +235,10 @@ class Cache:
 
     def cached(self, key: str) -> bool:
         return self.path(key).exists()
+
+    def write(self, key: str, body: bytes) -> None:
+        """Stores what a reader made from its downloads, e.g. the part of a large file it keeps."""
+        self._write(self.path(key), body)
 
     @staticmethod
     def _fresh(target: Path, max_age: float | None) -> bool:

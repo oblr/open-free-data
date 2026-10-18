@@ -8,7 +8,7 @@ import numpy as np
 
 from free_data import uba
 from free_data.sources import Dataset, Option, Place, Plugin, Table
-from free_data.vocabulary import REGIONS
+from free_data.vocabulary import REGIONS, STATE_CODE_TO_NUTS
 
 # Component -> variable in the terms of vocabulary.py; every one is a concentration.
 VARIABLES = {
@@ -20,11 +20,8 @@ VARIABLES = {
     "CO": "air.co",
 }
 
-# The UBA's network codes of the states -> NUTS 1; the UBA's own network ("UB") spans several.
-NETWORK_TO_NUTS = {
-    "BW": "DE1", "BY": "DE2", "BE": "DE3", "BB": "DE4", "HB": "DE5", "HH": "DE6", "HE": "DE7", "MV": "DE8",
-    "NI": "DE9", "NW": "DEA", "RP": "DEB", "SL": "DEC", "SN": "DED", "ST": "DEE", "SH": "DEF", "TH": "DEG",
-}
+# The UBA's network codes of the states are their two-letter codes; the UBA's own network ("UB") spans several.
+NETWORK_TO_NUTS = STATE_CODE_TO_NUTS
 
 
 class Uba(Plugin):

@@ -1,5 +1,5 @@
 {
   "data-source-id": "de-bast-traffic-counts",
-  "link": "https://www.bast.de",
-  "description": "BASt permanent automatic traffic counting stations: hourly vehicle counts on federal roads, published yearly as CSV files with inconsistent formats; device outages are filled in by estimation."
+  "link": "https://www.bast.de/DE/Themen/Digitales/HF_1/Massnahmen/verkehrszaehlung/Stundenwerte.html",
+  "description": "BASt permanent automatic traffic counting stations: hourly vehicle counts on motorways and federal roads since 2003, published once a year as one large file per road class; device outages are filled in by estimation."
 }

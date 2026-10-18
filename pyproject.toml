@@ -26,6 +26,7 @@ free-data-hubeau = "free_data.hubeau:main"
 free-data-dwd = "free_data.dwd:main"
 free-data-uba = "free_data.uba:main"
 free-data-yahoo = "free_data.yahoo:main"
+free-data-bast = "free_data.bast:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/free_data"]

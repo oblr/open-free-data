@@ -81,7 +81,7 @@ def test_csv_notes_come_first():
     assert out.getvalue().splitlines() == ["# a note", "timestamp,x", "1970-01-01T00:00:00+00:00,1.0"]
 
 
-def test_every_plugin_has_unique_dataset_ids(pegelonline_stations, hubeau_files, dwd_files, uba_files):
+def test_every_plugin_has_unique_dataset_ids(pegelonline_stations, hubeau_files, dwd_files, uba_files, bast_files):
     for plugin in sources.discover().values():
         ids = [d.id for d in plugin.datasets()]
         assert len(ids) == len(set(ids)), plugin.id

@@ -153,6 +153,12 @@ VARIABLES: dict[str, Variable] = {
                   standard="cf:mass_concentration_of_sulfur_dioxide_in_air"),
     "air.co": _v("Carbon monoxide", "CO", "Kohlenmonoxid", "monoxyde de carbone",
                  standard="cf:mass_concentration_of_carbon_monoxide_in_air"),
+    # ---- road traffic ----
+    "traffic": _v("Road traffic", "Verkehr", "Straßenverkehr", "trafic routier", "circulation"),
+    "traffic.vehicles": _v("Vehicles counted", "traffic count", "Kfz", "Fahrzeuge", "Verkehrszählung",
+                           "véhicules", "comptage routier"),
+    "traffic.vehicles.trucks": _v("Trucks counted", "heavy goods vehicles", "lorries", "Lkw", "Schwerverkehr",
+                                  "poids lourds", "camions"),
     # ---- finance ----
     "finance": _v("Financial markets", "stock exchange", "Börse", "Finanzmarkt", "bourse", "marchés financiers"),
     "finance.share_price": _v("Share price", "stock price", "Aktienkurs", "Kurs", "cours de l'action", "action"),
@@ -248,6 +254,11 @@ REGIONS: dict[str, Region] = {
     "AT3": Region("Westösterreich", "AT", ("Western Austria", "Tirol")),
 }
 
+# The states' two-letter codes (UBA networks, BASt stations) -> NUTS 1
+STATE_CODE_TO_NUTS = {
+    "BW": "DE1", "BY": "DE2", "BE": "DE3", "BB": "DE4", "HB": "DE5", "HH": "DE6", "HE": "DE7", "MV": "DE8",
+    "NI": "DE9", "NW": "DEA", "RP": "DEB", "SL": "DEC", "SN": "DED", "ST": "DEE", "SH": "DEF", "TH": "DEG",
+}
 STATE_TO_NUTS = {region.name: code for code, region in REGIONS.items() if region.country == "DE"}
 STATE_TO_NUTS["Tirol"] = "AT3"  # a few DWD stations are across the border
 

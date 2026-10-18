@@ -254,3 +254,54 @@ def uba_files(cache_root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     put(cache_root, uba.SOURCE, "DEUB001/PM10/1TMW/2024.json",  # daily means come labelled at 11:00
         uba_rows("300", 1, 1, ["2024-01-01 11:00:00", "2024-01-02 11:00:00"], [18, 6]))
     return cache_root / uba.SOURCE
+
+
+# ---- BASt: the 2024 motorway file, and a station list ----
+
+BAST_COUNTS = ("KFZ_R1", "KFZ_R2", "Lkw_R1", "Lkw_R2", "PLZ_R1", "Pkw_R1", "Lfw_R1", "Mot_R1", "PmA_R1", "Bus_R1",
+               "LoA_R1", "Lzg_R1", "Sat_R1", "Son_R1", "PLZ_R2", "Pkw_R2", "Lfw_R2", "Mot_R2", "PmA_R2", "Bus_R2",
+               "LoA_R2", "Lzg_R2", "Sat_R2", "Son_R2")
+BAST_HEADER = "TKNR;Zst;Land;Strklas;Strnum;Datum;Wotag;Fahrtzw;Stunde;" + ";".join(
+    f"{c};K_{c}" for c in BAST_COUNTS)
+
+
+def bast_row(station: int, date: str, hour: int, counts: list[tuple[int, str]]) -> str:
+    """A row of a yearly file: the first four counts (KFZ and Lkw per direction) given, the rest -1."""
+    cells = list(counts) + [(-1, "x")] * (len(BAST_COUNTS) - len(counts))
+    return (f"5107;{station:4d};05;A;   1;{date}; 1;w;{hour:02d};"
+            + ";".join(f"{v:5d};{mark}" for v, mark in cells))
+
+
+def bast_zip(rows: list[str], name: str = "2024_A_S.txt") -> bytes:
+    import io
+    import zipfile
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(name, "\r\n".join([BAST_HEADER, *rows, ""]).encode("latin-1"))
+    return buffer.getvalue()
+
+
+BAST_STATIONS = (
+    "TK_Nr;DZ_Nr;DZ_Name;Land_Nr;Land_Code;Str_Kl;Str_Nr;Str_Zus;Erf_Art;Fernziel_Ri1;Nahziel_Ri1;Hi_Ri1;"
+    "Fernziel_Ri2;Nahziel_Ri2;Hi_Ri2;Koor_WGS84_N;Koor_WGS84_E\r\n"
+    "5107;5113;Köln-Nord (O);5;NW;A;1;;8+1;Dortmund;AK Köln-Nord;N;Koblenz;AS Köln-Niehl;S;51,0123;6,9456\r\n"
+    "6507;0223;Eppelborn;10;SL;B;10;;5+1;Saarbrücken;Eppelborn;S;Lebach;Lebach;N;49,4;6,97\r\n"
+    "7000;7001;Stadtstraße;8;BW;L;12;;2;;;;;;;48,1;9,1\r\n"
+    "    \r\n"
+)
+
+
+@pytest.fixture
+def bast_files(cache_root: Path) -> Path:
+    """Years 2023 (motorways only) and 2024 published; Köln-Nord on the A 1, Eppelborn on the B 10."""
+    from free_data import bast
+    folder = cache_root / bast.SOURCE
+    folder.mkdir(parents=True)
+    (folder / "years.html").write_text(
+        '<a href="https://www.bast.de/videos/2023_A_S.zip">A</a> <a href="https://www.bast.de/videos/2024_A_S.zip">A</a>'
+        ' <a href="https://www.bast.de/videos/2024_B_S.zip">B</a>')
+    (folder / "stations.html").write_text(
+        '<a href="DE/Themen/Digitales/HF_1/Massnahmen/verkehrszaehlung/Daten/2024_1/Jawe2024.csv'
+        '?view=renderTcDataExportCSV">CSV</a>')
+    (folder / "stations.csv").write_bytes(BAST_STATIONS.encode("latin-1"))
+    return folder

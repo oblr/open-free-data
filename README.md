@@ -38,6 +38,8 @@ Python 3.11 or newer; the only dependency is numpy.
     free-data-uba DEBB021/NO2 DEBB021/PM10 --start 2025-01-01 --end 2025-01-31
     free-data-yahoo --list dax            # share and index symbols (Yahoo Finance, personal use only)
     free-data-yahoo SAP.DE/close TTE.PA/close ^GDAXI/close --start 2024-01-01 --end 2024-12-31
+    free-data-bast --list köln            # BASt traffic counting stations
+    free-data-bast 5113/KFZ 5113/LKW --start 2024-06-01 --end 2024-06-30   # first read of a year: 1-2 min
     free-data-ingest de-smard 410 4169 --start 2025-01-01 --end 2025-12-31   # download ahead of time
     free-data-ingest de-uba-luftdaten --match potsdam --start 2025-01-01 --end 2025-12-31
     free-data-fingerprints de-smard --all # features of every cached SMARD series over last year
@@ -90,6 +92,7 @@ All Python code is in the package `src/free_data/`:
 | `hubeau.py` | Reader for Hub'eau, the river gauges of France (daily flows for decades, the rest 30 days). |
 | `dwd.py` | Reader for the DWD's hourly weather observations at German stations. |
 | `uba.py` | Reader for the Umweltbundesamt's air quality stations: PM10, PM2.5, NO2, O3, SO2, CO since 2016. |
+| `bast.py` | Reader for the BASt's automatic traffic counting stations: vehicles per hour on motorways and federal roads since 2003, up to the last published year. Each year's file (about 260 MB) is downloaded once and reduced to a small file per station. |
 | `yahoo.py` | Reader for share and index prices from Yahoo Finance's unofficial chart endpoint (personal use only). |
 | `yahoo_symbols.json` | The shares and indices the browser offers from Yahoo Finance: the large German and French ones. |
 | `browser.py` | The local web server: the page and its JSON/CSV API. |

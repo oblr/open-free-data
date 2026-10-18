@@ -46,7 +46,9 @@ def test_measures_point_into_dimensions():
 
 
 @pytest.fixture
-def every_dataset(pegelonline_stations, hubeau_files, dwd_files, uba_files) -> list[tuple[str, sources.Dataset]]:
+def every_dataset(
+    pegelonline_stations, hubeau_files, dwd_files, uba_files, bast_files
+) -> list[tuple[str, sources.Dataset]]:
     return [(source, d) for source, plugin in sources.discover().items() for d in plugin.datasets()]
 
 

@@ -47,7 +47,6 @@ import argparse
 import json
 import sys
 import time as clock
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -56,7 +55,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from free_data import sources
-from free_data.cache import DAY, HOUR, Cache, FetchError
+from free_data.cache import DAY, HOUR, Cache, FetchError, Pool
 from free_data.sources import Table, Time
 
 BASE = "https://luftdaten.umweltbundesamt.de/api/air-data/v4"
@@ -173,7 +172,7 @@ def read(
     wanted = [_find(known, name) for name in series]
 
     downloads = list(dict.fromkeys((s, year) for s in wanted for year in _years(s, lo, hi)))
-    with ThreadPoolExecutor(DOWNLOADS) as pool:
+    with Pool(DOWNLOADS) as pool:
         loaded = dict(zip(downloads, pool.map(lambda job: _year(store, *job), downloads), strict=True))
 
     columns = []

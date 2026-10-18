@@ -2,7 +2,7 @@
 
 Every test runs against its own cache folder ($FREE_DATA_CACHE) and fails if
 anything tries to download; tests that want a download patch
-cache._download themselves.
+cache._download themselves. Requests aren't throttled.
 """
 
 from __future__ import annotations
@@ -33,6 +33,14 @@ STATIONS = [
 ]
 
 
+class Unthrottled(cache.Throttle):
+    def wait(self, url: str) -> float:
+        return 0.0
+
+    def slow_down(self, url: str, retry_after: float | None) -> None:
+        pass
+
+
 @pytest.fixture(autouse=True)
 def cache_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / "cache"
@@ -43,6 +51,7 @@ def cache_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     monkeypatch.setattr(cache, "_download", offline)
     monkeypatch.setattr(cache, "RETRY_PAUSES", (0.0, 0.0))
+    monkeypatch.setattr(cache, "THROTTLE", Unthrottled())  # tests that time it make their own
     return root
 
 

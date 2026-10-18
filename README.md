@@ -32,6 +32,8 @@ Python 3.11 or newer; the only dependency is numpy.
     free-data-dwd 03987/TT_TU 03987/R1 --resolution day --start 2025-07-01
     free-data-uba --list potsdam          # UBA air quality stations
     free-data-uba DEBB021/NO2 DEBB021/PM10 --start 2025-01-01 --end 2025-01-31
+    free-data-ingest de-smard 410 4169 --start 2025-01-01 --end 2025-12-31   # download ahead of time
+    free-data-ingest de-uba-luftdaten --match potsdam --start 2025-01-01 --end 2025-12-31
     free-data-cache                       # what is cached, per source
     free-data-cache clear de-smard --older-than 30d
 
@@ -61,7 +63,9 @@ All Python code is in the package `src/free_data/`:
 | `transforms.py` | What the browser does to a series before showing it: another unit, totals or means per hour, day or month. |
 | `fingerprints.py` | Precomputed measurements: features of one series and comparisons of two, registered by name and stored per dataset in the cache. |
 | `plugins/` | One module per readable source, each with a module-level `PLUGIN`. |
-| `cache.py` | Downloads, cached under `~/.cache/free-data/<source>/`. |
+| `cache.py` | Downloads, cached under `~/.cache/free-data/<source>/`, throttled per host. |
+| `ingest.py` | Background downloads into the cache: jobs per source, nothing cached fetched twice. |
+| `measurements.py` | The features `fingerprints.py` stores for every series. |
 | `smard.py` | Reader for SMARD, the Bundesnetzagentur's electricity market data. |
 | `eco2mix.py` | Reader for RTE éCO2mix, France's electricity mix (via ODRÉ). |
 | `pegelonline.py` | Reader for PEGELONLINE, the gauges of the German federal waterways (last 31 days only). |
@@ -176,6 +180,16 @@ Files live in `$XDG_CACHE_HOME/free-data` (by default `~/.cache/free-data`);
 set `FREE_DATA_CACHE` to put them elsewhere. A file is fetched again once it is older than its reader's
 `max_age`. If the source can't be reached or answers with a server error,
 the download is tried twice more, then the cached copy is used with a warning.
+
+Requests are throttled per host before they are sent: at most 2 per second
+(`FREE_DATA_RATE`, or `cache.HOST_RATES` per host). A 429 or 503 halves that
+host's rate and holds it for its `Retry-After`.
+
+`free-data-ingest` (`ingest.Ingester` in code) reads series through their
+plugins in background threads, one per source, so they are cached before
+anyone plots them. It keeps every file already cached however old
+(`--refresh stale` refetches what is past its reader's `max_age`, `--force`
+everything), so running a job twice downloads nothing the second time.
 
 ## Tests and linting
 

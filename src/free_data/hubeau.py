@@ -41,7 +41,6 @@ import json
 import sys
 import time as clock
 import zlib
-from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime
 from pathlib import Path
 from urllib.parse import urlencode
@@ -50,7 +49,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from free_data import sources
-from free_data.cache import DAY, MINUTE, Cache
+from free_data.cache import DAY, MINUTE, Cache, Pool
 from free_data.sources import Table, Time
 
 BASE = "https://hubeau.eaufrance.fr/api/v2/hydrometrie"
@@ -166,7 +165,7 @@ def _with_history(
     first = _year(lo) if lo is not None else FIRST_YEAR
     last = _year(min(hi, now) if hi is not None else now)
     decades = range(max(first, FIRST_YEAR) // 10 * 10, last // 10 * 10 + 1, 10)
-    with ThreadPoolExecutor(DOWNLOADS) as pool:
+    with Pool(DOWNLOADS) as pool:
         parts = list(pool.map(lambda decade: _daily(store, station, decade, now), decades))
     days = np.concatenate([p[0] for p in parts] or [np.array([], np.int64)])
     flows = np.concatenate([p[1] for p in parts] or [np.array([])])

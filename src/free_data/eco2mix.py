@@ -37,7 +37,6 @@ import csv
 import io
 import sys
 import time as clock
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
@@ -46,7 +45,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from free_data import sources
-from free_data.cache import DAY, MINUTE, Cache
+from free_data.cache import DAY, MINUTE, Cache, Pool
 from free_data.sources import Table, Time
 
 BASE = "https://odre.opendatasoft.com/api/explore/v2.1/catalog/datasets"
@@ -156,7 +155,7 @@ def read(
     years = [y for y in range(max(first, FIRST_YEAR), last + 1) if boundary is None or _year_start(y) < boundary]
     if boundary is not None and lo is not None and lo >= boundary:
         years = []  # all of it is real-time data
-    with ThreadPoolExecutor(DOWNLOADS) as pool:
+    with Pool(DOWNLOADS) as pool:
         history = list(pool.map(lambda y: _parse(_history(store, y)), years))
 
     parts = [(rows, rows.time < boundary if boundary is not None else np.ones(len(rows.time), bool))

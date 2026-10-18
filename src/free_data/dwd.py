@@ -44,7 +44,6 @@ import re
 import sys
 import time as clock
 import zipfile
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -52,7 +51,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from free_data import sources
-from free_data.cache import DAY, HOUR, Cache, FetchError
+from free_data.cache import DAY, HOUR, Cache, FetchError, Pool
 from free_data.sources import Table, Time
 
 BASE = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly"
@@ -129,7 +128,7 @@ def read(
     for name in series:
         station, variable = _split(name)
         wanted.setdefault((station, VARIABLES[variable].group), []).append(variable)
-    with ThreadPoolExecutor(DOWNLOADS) as pool:
+    with Pool(DOWNLOADS) as pool:
         loaded = dict(zip(wanted, pool.map(lambda key: _load(store, *key, wanted[key], lo, hi), wanted), strict=True))
 
     columns = []

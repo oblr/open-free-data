@@ -17,6 +17,7 @@ lint = ["ruff"]
 [project.scripts]
 free-data = "free_data.browser:main"
 free-data-cache = "free_data.cache:main"
+free-data-ingest = "free_data.ingest:main"
 free-data-smard = "free_data.smard:main"
 free-data-eco2mix = "free_data.eco2mix:main"
 free-data-pegelonline = "free_data.pegelonline:main"

@@ -21,6 +21,10 @@ what is older than its reader's max_age (what the browser does), and
 Requests go through the cache's throttle (cache.py): at most cache.RATE
 per second to any host, slower after a 429 or 503.
 
+A source with a constraint of sources.INGEST_GATED (personal use only, or
+tight request limits, e.g. Yahoo Finance) is only ingested with
+`allow_constrained=True` (--allow-constrained).
+
 Progress goes to the logger "free_data.ingest" (and every download to
 "free_data.cache"): at INFO when a job starts, after each chunk with what
 is left, and when it ends; at WARNING every dataset that fails, as it
@@ -97,11 +101,16 @@ class Ingester:
         end: str,
         options: dict[str, str] | None = None,
         refresh: str | None = None,
+        allow_constrained: bool = False,
     ) -> Job:
         """Queues a job and returns it; the same job, still queued or running, is returned instead."""
         plugin = sources.discover().get(source)
         if plugin is None:
             raise ValueError(f"no plugin for source {source!r}")
+        gated = [t for t in sources.constraints(source) if t in sources.INGEST_GATED]
+        if gated and not allow_constrained:
+            raise ValueError(f"{source} is {', '.join(gated)}: {sources.notice(source)} "
+                             "Ingest it only with allow_constrained (--allow-constrained).")
         sources.moment(start, plugin.timezone, end=False)  # bad dates fail here, not in the thread
         sources.moment(end, plugin.timezone, end=True)
         job = Job(source, tuple(dict.fromkeys(datasets)), start, end, plugin.resolve(options or {}),
@@ -263,6 +272,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--refresh", choices=cache.REFRESH, default="never",
                         help="never: keep every cached file (default); stale: refetch old ones; always: refetch all")
     parser.add_argument("--force", action="store_true", help="the same as --refresh always")
+    parser.add_argument("--allow-constrained", action="store_true",
+                        help="also a source for personal use only or with tight request limits (see its catalog entry)")
     parser.add_argument("--rate", type=float, help=f"requests per second to one host (default {cache.RATE:g})")
     parser.add_argument("-v", "--verbose", action="store_true", help="also every file taken from the cache")
     parser.add_argument("-q", "--quiet", action="store_true", help="only warnings and the summary")
@@ -287,7 +298,8 @@ def main(argv: list[str] | None = None) -> None:
 
     ingester = Ingester(refresh="always" if args.force else args.refresh)
     try:
-        job = ingester.submit(args.source, datasets, start=args.start, end=args.end, options=options)
+        job = ingester.submit(args.source, datasets, start=args.start, end=args.end, options=options,
+                              allow_constrained=args.allow_constrained)
     except ValueError as error:
         parser.error(str(error))
     try:

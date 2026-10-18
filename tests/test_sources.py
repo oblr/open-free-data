@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import io
+import json
+
 import numpy as np
 import pytest
 
@@ -60,6 +63,22 @@ def test_catalog_lists_every_source_plugged_in_first():
     assert plugged == sorted(plugged, reverse=True)
     smard = next(row for row in rows if row["id"] == "de-smard")
     assert smard["plugin"] and smard["country"] == "Germany"
+
+
+def test_constraints_are_known_terms():
+    for path in sources.DATA.glob("*.json"):
+        tags = json.loads(path.read_text()).get("constraints", [])
+        assert isinstance(tags, list) and all(t in sources.CONSTRAINTS for t in tags), path.name
+    rows = {row["id"]: row for row in sources.catalog()}
+    assert rows["de-smard"]["constraints"] == [] and sources.notice("de-smard") == ""
+    assert "personal-use" in rows["us-yahoo-finance"]["constraints"]
+    assert sources.notice("us-yahoo-finance").startswith("us-yahoo-finance: Its terms allow private use only:")
+
+
+def test_csv_notes_come_first():
+    out = io.StringIO()
+    sources.write_csv(table(("x",), [0], [[1.0]]), out, "UTC", ["a note", ""])
+    assert out.getvalue().splitlines() == ["# a note", "timestamp,x", "1970-01-01T00:00:00+00:00,1.0"]
 
 
 def test_every_plugin_has_unique_dataset_ids(pegelonline_stations, hubeau_files, dwd_files, uba_files):

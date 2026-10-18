@@ -1,7 +1,9 @@
 """Plugin interface for the free data sources.
 
-A data source is described by data/<id>.json (id, link, description). A
-plugin makes it readable: a module in plugins/ with a module-level `PLUGIN`,
+A data source is described by data/<id>.json (id, link, description, and
+optionally "constraints": terms of CONSTRAINTS for a source that isn't
+freely usable, e.g. ["personal-use", "unofficial-api"]). A plugin makes it
+readable: a module in plugins/ with a module-level `PLUGIN`,
 an instance of `Plugin` whose `id` matches the JSON file.
 
     class MySource(Plugin):
@@ -25,6 +27,7 @@ import importlib
 import json
 import pkgutil
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, tzinfo
 from functools import cache
@@ -47,6 +50,20 @@ COUNTRIES = {  # source id prefix -> top level of the browser's tree
     "uk": "United Kingdom",
     "us": "United States",
 }
+
+# What may limit the use of a source, by the tag its data/<id>.json lists
+# under "constraints"; a source without any is open. The browser shows them,
+# CSV exports name them, and ingest.py only downloads a source with one of
+# INGEST_GATED when asked to explicitly.
+CONSTRAINTS = {
+    "personal-use": "Its terms allow private use only: don't pass the data on.",
+    "non-commercial": "Its terms forbid commercial use.",
+    "third-party-licence": "Some series are under the licences of others; check before passing them on.",
+    "unofficial-api": "No supported API: reading it may break without notice.",
+    "rate-limited": "Few requests are allowed, and how many isn't documented.",
+    "api-key": "Needs a personal API key.",
+}
+INGEST_GATED = {"personal-use", "rate-limited"}
 
 
 Time = str | datetime | np.datetime64 | None
@@ -173,10 +190,23 @@ def catalog() -> list[dict]:
             "description": entry.get("description", ""),
             "plugin": key in plugins,
             "country": COUNTRIES.get(key.split("-", 1)[0], "Other"),
+            "constraints": entry.get("constraints", []),
         }
         for key, entry in entries.items()
     ]
     return sorted(rows, key=lambda row: (not row["plugin"], row["id"]))
+
+
+def constraints(source: str) -> list[str]:
+    """The constraints of a source in data/, [] for an open one or one without a JSON file."""
+    path = DATA / f"{source}.json"
+    return json.loads(path.read_text()).get("constraints", []) if path.exists() else []
+
+
+def notice(source: str) -> str:
+    """One line on what limits the use of a source, "" for an open one."""
+    tags = constraints(source)
+    return f"{source}: " + " ".join(CONSTRAINTS.get(t, t) for t in tags) if tags else ""
 
 
 def _title(entry: dict, key: str) -> str:
@@ -243,9 +273,12 @@ def epoch_ms(value: Time, zone: str | tzinfo) -> int | None:
     return int(when.astimezone(UTC).timestamp() * 1000)
 
 
-def write_csv(table: Table, out: TextIO, zone: str | tzinfo) -> None:
-    """The table as CSV with ISO timestamps in `zone`."""
+def write_csv(table: Table, out: TextIO, zone: str | tzinfo, notes: Iterable[str] = ()) -> None:
+    """The table as CSV with ISO timestamps in `zone`, after a "# " line per note (see `notice`)."""
     tz = _zone(zone)
+    for note in notes:
+        if note:
+            out.write(f"# {note}\n")
     out.write(",".join(("timestamp", *table.columns)) + "\n")
     for t, row in zip(table.time.astype(np.int64), table.values, strict=True):
         stamp = datetime.fromtimestamp(t / 1000, tz).isoformat()

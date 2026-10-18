@@ -1,0 +1,5 @@
+{
+  "data-source-id": "fr-amf-short-positions",
+  "link": "https://www.amf-france.org/en/news-publications/publications/open-data",
+  "description": "AMF net short positions: net short positions on French listed shares per holder and issuer, full history, as one consolidated file updated daily on data.gouv.fr."
+}

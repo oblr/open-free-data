@@ -55,6 +55,14 @@ def test_series_and_csv(smard_files):
     assert lines[1] == "2024-01-01T01:00:00+00:00,1.0"
 
 
+def test_csv_names_the_constraints_of_its_sources(smard_files, monkeypatch):
+    columns, table, _ = browser.series({"d": ["de-smard:410"], "end": ["2024-01-01T03:00"]})
+    monkeypatch.setattr(browser.sources, "constraints", lambda source: ["non-commercial"])
+    lines = browser.to_csv(columns, table).decode().splitlines()
+    assert lines[0] == "# de-smard: Its terms forbid commercial use."
+    assert lines[1].startswith("timestamp_utc,")
+
+
 def test_series_in_another_unit_and_step(smard_files):
     query = {"d": ["de-smard:410"], "end": ["2024-01-01T03:00"], "unit.de-smard:410": ["MW"]}
     columns, table, _ = browser.series(query)

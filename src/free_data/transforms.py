@@ -7,8 +7,9 @@
 
 The unit comes first, then the step, so MW per quarter hour turned into MWh
 and then aggregated per day is the energy of each day. Amounts per interval
-(energy, precipitation, sunshine) are summed, everything else is averaged;
-a sum over a period with gaps covers only the values that are there.
+(energy, precipitation, sunshine, shares traded) are summed, everything else
+is averaged; a sum over a period with gaps covers only the values that are
+there.
 
 The interval of a value is the time to the next one, the last value taking
 the one before: times label the start of their interval, and a day with a
@@ -24,7 +25,7 @@ import numpy as np
 from free_data import sources, units
 
 STEPS = ("hour", "day", "month")
-SUMMED = ("energy", "amount", "duration")  # measures (vocabulary.MEASURES) that are an amount per interval
+SUMMED = ("energy", "amount", "duration", "count")  # measures (vocabulary.MEASURES) that are an amount per interval
 
 
 @dataclass(frozen=True)

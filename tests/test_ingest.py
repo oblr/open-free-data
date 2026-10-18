@@ -137,6 +137,15 @@ def test_bad_input_fails_before_the_thread(fake):
         ingest.Ingester().submit("xx-fake", start="soon", end="2025-01-02")
 
 
+def test_constrained_sources_only_when_allowed(fake, server, monkeypatch):
+    monkeypatch.setattr(ingest.sources, "constraints", lambda source: ["personal-use", "unofficial-api"])
+    with pytest.raises(ValueError, match="personal-use.*--allow-constrained"):
+        ingest.Ingester().submit("xx-fake", ["a"], start="2025-01-01", end="2025-01-02")
+    ingester = ingest.Ingester()
+    job = ingester.submit("xx-fake", ["a"], start="2025-01-01", end="2025-01-02", allow_constrained=True)
+    assert ingester.wait(timeout=5) and job.state == "done"
+
+
 def test_requests_to_one_host_are_spaced(server, monkeypatch):
     monkeypatch.setattr(cache, "THROTTLE", Throttle(rate=20))  # 50 ms apart
     store = Cache("x")

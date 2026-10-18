@@ -1,0 +1,6 @@
+{
+  "data-source-id": "us-yahoo-finance",
+  "link": "https://finance.yahoo.com",
+  "description": "Yahoo Finance: daily and hourly prices and volumes of shares, indices and funds on most exchanges, Xetra and Euronext Paris among them, read from the chart endpoint behind Yahoo's own pages. Not an open source: no supported API, Yahoo's terms allow personal use only, and its request limits are undocumented.",
+  "constraints": ["personal-use", "unofficial-api", "rate-limited"]
+}

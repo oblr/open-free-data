@@ -153,6 +153,11 @@ VARIABLES: dict[str, Variable] = {
                   standard="cf:mass_concentration_of_sulfur_dioxide_in_air"),
     "air.co": _v("Carbon monoxide", "CO", "Kohlenmonoxid", "monoxyde de carbone",
                  standard="cf:mass_concentration_of_carbon_monoxide_in_air"),
+    # ---- finance ----
+    "finance": _v("Financial markets", "stock exchange", "Börse", "Finanzmarkt", "bourse", "marchés financiers"),
+    "finance.share_price": _v("Share price", "stock price", "Aktienkurs", "Kurs", "cours de l'action", "action"),
+    "finance.index_level": _v("Stock index", "Aktienindex", "Index", "indice boursier"),
+    "finance.trading_volume": _v("Trading volume", "Handelsvolumen", "Umsatz", "volume des échanges"),
 }
 
 @dataclass(frozen=True)
@@ -171,7 +176,9 @@ class Measure:
 MEASURES: dict[str, Measure] = {
     "power": Measure("Average power over the interval", ("power",)),
     "energy": Measure("Energy per interval", ("energy",)),
-    "price": Measure("Price", ("price",)),
+    "price": Measure("Price", ("price", "money")),
+    "index": Measure("Index level", ("index",)),
+    "count": Measure("Number per interval, e.g. shares traded", ("count",)),
     "intensity": Measure("Emissions per unit of energy", ("intensity",)),
     "temperature": Measure("Temperature", ("temperature",)),
     "humidity": Measure("Relative humidity", ("fraction",)),

@@ -48,6 +48,7 @@ from __future__ import annotations
 import argparse
 import contextvars
 import email.utils
+import http.client
 import json
 import logging
 import os
@@ -70,7 +71,9 @@ MAX_RETRY_AFTER = 60.0  # the longest a retry waits for a Retry-After; the host 
 MAX_HOLD = 15 * 60.0  # the longest a Retry-After holds a host
 
 RATE = float(os.environ.get("FREE_DATA_RATE") or 2.0)  # requests per second to one host; 0 = no limit
-HOST_RATES: dict[str, float] = {}  # per host, over RATE
+HOST_RATES: dict[str, float] = {  # per host, over RATE
+    "query1.finance.yahoo.com": 0.5,  # Yahoo Finance (yahoo.py) doesn't say what it allows
+}
 MIN_RATE = 0.1  # what repeated 429s can bring a host down to
 REFRESH = ("offline", "never", "stale", "always")
 LONG_WAIT = 5.0  # a throttle wait longer than this is logged
@@ -282,6 +285,8 @@ def _download(url: str) -> bytes:
         raise FetchError(url, error.code, f"HTTP {error.code} for {url}", wait) from error
     except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
         raise FetchError(url, None, f"{url}: {getattr(error, 'reason', error)}") from error
+    except http.client.IncompleteRead as error:  # the connection dropped mid-body: nothing is cached, try again
+        raise FetchError(url, None, f"{url}: cut off after {len(error.partial)} bytes") from error
 
 
 def _size(n: int) -> str:

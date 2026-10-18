@@ -1,0 +1,5 @@
+{
+  "data-source-id": "de-bundesbank",
+  "link": "https://www.bundesbank.de/en/statistics/time-series-databases/help-for-sdmx-web-service",
+  "description": "Deutsche Bundesbank time series database: German capital market indicators (CDAX and DAX share and performance indices, REX and iBoxx bond indices, yields), interest rates and monetary statistics, mostly monthly. Free SDMX REST API without a key (CSV or SDMX-JSON)."
+}

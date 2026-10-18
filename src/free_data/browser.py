@@ -154,6 +154,7 @@ def vocabulary_terms() -> dict:
         "kinds": list(vocabulary.KINDS),
         "regions": {k: asdict(v) for k, v in vocabulary.REGIONS.items()},
         "countries": {k: asdict(v) for k, v in vocabulary.COUNTRIES.items()},
+        "constraints": sources.CONSTRAINTS,
     }
 
 
@@ -236,6 +237,9 @@ def series(query: dict[str, list[str]]) -> tuple[list[dict], sources.Table, np.n
 
 def to_csv(columns: list[dict], table: sources.Table) -> bytes:
     out = io.StringIO()
+    for source in dict.fromkeys(c["source"] for c in columns):  # what limits the use of a source comes first
+        if note := sources.notice(source):
+            out.write(f"# {note}\n")
     writer = csv.writer(out)
     writer.writerow(["timestamp_utc", *(f"{c['key']} {c['group']} {c['label']} [{c['unit']}]" for c in columns)])
     for t, row in zip(table.time.astype(np.int64), table.values, strict=True):

@@ -61,6 +61,9 @@ DIMENSIONS: dict[str, Dimension] = {
     "conductivity": Dimension("Electrical conductivity", "µS/cm"),
     "concentration": Dimension("Mass concentration, in water or air", "mg/l"),  # mg/l = g/m³
     "turbidity": Dimension("Turbidity; its units measure differently and only roughly agree", ""),
+    "money": Dimension("Amount of money; currencies don't convert, their rates change", ""),
+    "index": Dimension("Index level; indices measure different things and don't convert", ""),
+    "count": Dimension("Number of things, e.g. shares traded", "count"),
     "dimensionless": Dimension("No unit", "-"),
 }
 
@@ -117,6 +120,14 @@ UNITS: dict[str, Unit] = {
     "FNU": Unit("formazin nephelometric unit", "turbidity"),
     "FTU": Unit("formazin turbidity unit", "turbidity", spellings=("TE/F",)),
     "NTU": Unit("nephelometric turbidity unit", "turbidity"),
+    # finance
+    "EUR": Unit("euro", "money", spellings=("€",)),
+    "USD": Unit("US dollar", "money", spellings=("$",)),
+    "GBP": Unit("pound sterling", "money", spellings=("£",)),
+    "GBp": Unit("penny sterling", "money", spellings=("GBX",)),
+    "CHF": Unit("Swiss franc", "money"),
+    "pt": Unit("index point", "index", spellings=("points",)),
+    "count": Unit("number of things", "count", spellings=("shares",)),
     "-": Unit("no unit, e.g. pH", "dimensionless", spellings=("--", "1")),
 }
 

@@ -4,6 +4,10 @@ Free public time series from German and French sources: a catalog of
 sources, plugins that read them into one table format, a local file cache,
 and a browser page to search, plot and export them.
 
+A few sources aren't open, such as Yahoo Finance for share prices. Their
+catalog entries list what limits their use, and free-data shows and
+enforces it (see [Sources with constraints](#sources-with-constraints)).
+
 ![The browser: German and French solar generation next to the temperature in Potsdam](docs/screenshot.png)
 
 ## Setup
@@ -32,6 +36,8 @@ Python 3.11 or newer; the only dependency is numpy.
     free-data-dwd 03987/TT_TU 03987/R1 --resolution day --start 2025-07-01
     free-data-uba --list potsdam          # UBA air quality stations
     free-data-uba DEBB021/NO2 DEBB021/PM10 --start 2025-01-01 --end 2025-01-31
+    free-data-yahoo --list dax            # share and index symbols (Yahoo Finance, personal use only)
+    free-data-yahoo SAP.DE/close TTE.PA/close ^GDAXI/close --start 2024-01-01 --end 2024-12-31
     free-data-ingest de-smard 410 4169 --start 2025-01-01 --end 2025-12-31   # download ahead of time
     free-data-ingest de-uba-luftdaten --match potsdam --start 2025-01-01 --end 2025-12-31
     free-data-fingerprints de-smard --all # features of every cached SMARD series over last year
@@ -84,6 +90,8 @@ All Python code is in the package `src/free_data/`:
 | `hubeau.py` | Reader for Hub'eau, the river gauges of France (daily flows for decades, the rest 30 days). |
 | `dwd.py` | Reader for the DWD's hourly weather observations at German stations. |
 | `uba.py` | Reader for the Umweltbundesamt's air quality stations: PM10, PM2.5, NO2, O3, SO2, CO since 2016. |
+| `yahoo.py` | Reader for share and index prices from Yahoo Finance's unofficial chart endpoint (personal use only). |
+| `yahoo_symbols.json` | The shares and indices the browser offers from Yahoo Finance: the large German and French ones. |
 | `browser.py` | The local web server: the page and its JSON/CSV API. |
 | `web/` (top level) | The page: `index.html`, TypeScript in `src/`, compiled to `dist/` (committed; both ship in the wheel). |
 
@@ -135,9 +143,11 @@ dimension, its factor to the base unit, and the other spellings sources use.
 or from an amount to its rate. `transforms.py` applies it to a whole series
 (`GET /api/series?...&unit.de-smard:4068=MW&step=day`), taking each value's
 interval as the time to the next one, and aggregates afterwards: amounts
-per interval (energy, precipitation, sunshine) are summed, the rest averaged. Heights above different datums (`cm` above
-the gauge zero, `m+NN`, `m+NHN`) are separate dimensions and don't convert;
-neither do turbidity units (their dimension has no base). A new spelling
+per interval (energy, precipitation, sunshine, shares traded) are summed,
+the rest averaged. Heights above different datums (`cm` above the gauge
+zero, `m+NN`, `m+NHN`) are separate dimensions and don't convert; neither
+do turbidity units, currencies or index points (their dimensions have no
+base). A new spelling
 goes into its unit's `spellings`, a new unit into `UNITS`, a new kind of
 quantity into `DIMENSIONS`.
 
@@ -147,12 +157,41 @@ term goes into `vocabulary.py` first.
 
 ## Adding a source
 
-1. Add `src/free_data/data/<country>-<name>.json` with `data-source-id`, `link` and `description`.
+1. Add `src/free_data/data/<country>-<name>.json` with `data-source-id`, `link` and `description`,
+   and `constraints` if the source isn't open (see below).
 2. Add `src/free_data/plugins/<country>_<name>.py` defining a `Plugin` subclass whose `id`
    matches the JSON file, and `PLUGIN = YourPlugin()`. See the docstring of
    `sources.py` and `plugins/de_smard.py`.
 3. Download through `cache.Cache(<id>)`, choosing a `max_age` per file by how
    much it can still change.
+
+## Sources with constraints
+
+A source that isn't open lists tags under `constraints` in its catalog
+entry. The tags are defined in `sources.CONSTRAINTS`:
+
+| Tag | Meaning |
+| --- | --- |
+| `personal-use` | Its terms allow private use only: don't pass the data on. |
+| `non-commercial` | Its terms forbid commercial use. |
+| `third-party-licence` | Some series are under the licences of others (the ECB's market data). |
+| `unofficial-api` | No supported API: reading it may break without notice. |
+| `rate-limited` | Few requests are allowed, and how many isn't documented. |
+| `api-key` | Needs a personal API key. |
+
+The browser marks such a source in the tree and repeats what limits it under
+each of its series. Every CSV, from the browser or a reader's command line,
+starts with a `# ` line naming them. `free-data-ingest` refuses a
+`personal-use` or `rate-limited` source unless given `--allow-constrained`.
+`tests/test_sources.py` checks that every tag is a known one.
+
+Yahoo Finance (`us-yahoo-finance`) is `personal-use`, `unofficial-api` and
+`rate-limited`. It is read at most once every two seconds
+(`cache.HOST_RATES`), in files of a year of daily or a month of hourly bars,
+because Yahoo often cuts off longer answers. `FREE_DATA_YAHOO_SYMBOLS=NESN.SW,ASML.AS`
+adds symbols to the browser, and `free-data-yahoo` takes any symbol Yahoo
+knows. Daily bars exist on trading days only, so a fingerprint's coverage
+of a share is about 70%.
 
 ## The browser page
 

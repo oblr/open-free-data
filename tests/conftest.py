@@ -45,6 +45,7 @@ class Unthrottled(cache.Throttle):
 def cache_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / "cache"
     monkeypatch.setenv("FREE_DATA_CACHE", str(root))
+    monkeypatch.delenv("FREE_DATA_YAHOO_SYMBOLS", raising=False)  # more symbols would be looked up online
 
     def offline(url: str) -> bytes:
         raise AssertionError(f"unexpected download: {url}")

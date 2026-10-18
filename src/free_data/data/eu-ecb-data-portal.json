@@ -1,0 +1,8 @@
+{
+  "data-source-id": "eu-ecb-data-portal",
+  "link": "https://data.ecb.europa.eu/data/datasets/FM/data-information",
+  "description": "ECB Data Portal: euro area statistics; its financial market dataset FM has equity indices (EURO STOXX 50, EURO STOXX), interest rates and exchange rates. Free SDMX REST API without a key (CSV or SDMX-JSON); some market data is under third-party licences.",
+  "constraints": [
+    "third-party-licence"
+  ]
+}

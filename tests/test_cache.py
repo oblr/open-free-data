@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import os
 import time
 
@@ -7,6 +8,8 @@ import pytest
 
 from free_data import cache
 from free_data.cache import Cache, FetchError
+
+download = cache._download  # the real one; conftest replaces it
 
 
 @pytest.fixture
@@ -122,6 +125,24 @@ def test_temporary_failures_are_tried_again(downloads, monkeypatch):
     monkeypatch.setattr(downloads.__class__, "__call__", flaky)
     assert Cache("x").fetch("u", "k") == b"new"
     assert downloads.calls == 3
+
+
+def test_a_body_cut_off_is_a_temporary_failure(monkeypatch):
+    class CutOff:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def read(self):
+            raise http.client.IncompleteRead(b"{\"chart", 100)
+
+    monkeypatch.setattr(cache, "_download", download)
+    monkeypatch.setattr(cache.urllib.request, "urlopen", lambda request, timeout: CutOff())
+    with pytest.raises(FetchError, match="cut off after 7 bytes") as error:
+        cache._download("https://example.org/x")
+    assert error.value.transient
 
 
 def test_client_errors_are_not_tried_again(downloads):

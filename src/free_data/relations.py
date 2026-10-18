@@ -39,6 +39,8 @@ LINKS: tuple[tuple[str, str, str], ...] = (
     ("weather.air_temperature", "water.temperature", "Air temperature warms rivers"),
     ("water.discharge", "electricity.generation.hydro", "River flow drives hydro generation"),
     ("water.temperature", "electricity.generation.nuclear", "Warm rivers limit the cooling of nuclear plants"),
+    ("weather.wind_speed", "air", "Wind disperses air pollution"),
+    ("weather.sunshine_duration", "air.o3", "Sunshine forms ozone"),
     ("electricity.generation.wind", "electricity.residual_load", "Wind lowers the residual load"),
     ("electricity.generation.solar", "electricity.residual_load", "Solar lowers the residual load"),
     ("electricity.consumption", "electricity.residual_load", "Residual load is consumption minus wind and solar"),

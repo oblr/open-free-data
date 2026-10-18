@@ -22,6 +22,7 @@ free-data-eco2mix = "free_data.eco2mix:main"
 free-data-pegelonline = "free_data.pegelonline:main"
 free-data-hubeau = "free_data.hubeau:main"
 free-data-dwd = "free_data.dwd:main"
+free-data-uba = "free_data.uba:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/free_data"]

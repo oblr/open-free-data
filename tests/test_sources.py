@@ -62,7 +62,7 @@ def test_catalog_lists_every_source_plugged_in_first():
     assert smard["plugin"] and smard["country"] == "Germany"
 
 
-def test_every_plugin_has_unique_dataset_ids(pegelonline_stations, hubeau_files, dwd_files):
+def test_every_plugin_has_unique_dataset_ids(pegelonline_stations, hubeau_files, dwd_files, uba_files):
     for plugin in sources.discover().values():
         ids = [d.id for d in plugin.datasets()]
         assert len(ids) == len(set(ids)), plugin.id

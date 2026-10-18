@@ -59,7 +59,7 @@ DIMENSIONS: dict[str, Dimension] = {
     "flow": Dimension("Volume per time", "m³/s"),
     "volume": Dimension("Volume", "m³"),
     "conductivity": Dimension("Electrical conductivity", "µS/cm"),
-    "concentration": Dimension("Mass concentration", "mg/l"),
+    "concentration": Dimension("Mass concentration, in water or air", "mg/l"),  # mg/l = g/m³
     "turbidity": Dimension("Turbidity; its units measure differently and only roughly agree", ""),
     "dimensionless": Dimension("No unit", "-"),
 }
@@ -110,6 +110,10 @@ UNITS: dict[str, Unit] = {
     "mS/cm": Unit("millisiemens per centimetre", "conductivity", 1e3),
     "mg/l": Unit("milligram per litre", "concentration", spellings=("mg/L",)),
     "µg/l": Unit("microgram per litre", "concentration", 1e-3, spellings=("μg/l", "ug/l", "µg/L")),
+    # air
+    "mg/m³": Unit("milligram per cubic metre", "concentration", 1e-3, spellings=("mg/m3",)),
+    "µg/m³": Unit("microgram per cubic metre", "concentration", 1e-6, spellings=("μg/m³", "µg/m3", "ug/m3")),
+    "ng/m³": Unit("nanogram per cubic metre", "concentration", 1e-9, spellings=("ng/m3",)),
     "FNU": Unit("formazin nephelometric unit", "turbidity"),
     "FTU": Unit("formazin turbidity unit", "turbidity", spellings=("TE/F",)),
     "NTU": Unit("nephelometric turbidity unit", "turbidity"),

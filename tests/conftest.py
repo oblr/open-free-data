@@ -178,3 +178,69 @@ def dwd_files(cache_root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (folder / "precipitation/recent/03987.zip").write_bytes(dwd_zip("RR", [
         ("2024010200", [0.5, 1, -999]), ("2024010201", [1.5, 1, -999]), ("2024010202", [-999.0, 0, -999])]))
     return folder
+
+
+# ---- UBA: "now" is 2024-01-10 12:00 Berlin ----
+
+def uba_station(sid: str, code: str, name: str, city: str, lon: str, lat: str, network: tuple[str, str, str],
+                setting: str, kind: str) -> list:
+    """A station as the UBA's meta data list it."""
+    return [sid, code, name, city, "", "2009-04-15", None, lon, lat, network[0], "1", "1", network[1], network[2],
+            f"{setting} area", setting, kind, "", "", ""]
+
+
+UBA_META = {
+    "stations": {
+        "21": uba_station("21", "DEBB021", "Potsdam-Zentrum", "Potsdam", "13.0602", "52.4014",
+                          ("4", "BB", "Brandenburg"), "urban", "background"),
+        "300": uba_station("300", "DEUB001", "Westerland", "Sylt", "8.3092", "54.9256",
+                           ("17", "UB", "UBA"), "rural", "background"),
+    },
+    "components": {
+        "1": ["1", "PM10", "PM₁₀", "µg/m³", "Particulate matter"],
+        "2": ["2", "CO", "CO", "mg/m³", "Carbon monoxide"],
+        "4": ["4", "SO2", "SO₂", "µg/m³", "Sulphur dioxide"],
+        "5": ["5", "NO2", "NO₂", "µg/m³", "Nitrogen dioxide"],
+        "7": ["7", "PM10BAP", "BaP", "ng/m³", "Benzo(a)pyrene in particulate matter"],
+    },
+    "scopes": {
+        "1": ["1", "1TMW", "day", "86400", "0", "Daily average"],
+        "2": ["2", "1SMW", "hour", "3600", "0", "One hour average"],
+        "3": ["3", "1SMW_MAX", "hour", "3600", "1", "Maximum one hour average"],
+        "4": ["4", "8SMW", "hour", "28800", "0", "Eight hour average"],
+    },
+    "limits": {
+        "15": ["2016-01-01 00:00:00", "2024-01-10 10:00:00"],  # a scope and component over all stations
+        "2521": ["2", "5", "21", "2016-01-01 00:00:00", "2024-01-10 10:00:00"],
+        "3521": ["3", "5", "21", "2016-01-01 00:00:00", "2024-01-09 00:00:00"],
+        "1121": ["1", "1", "21", "2016-01-01 00:00:00", "2024-01-09 00:00:00"],
+        "2121": ["2", "1", "21", "2018-03-01 00:00:00", "2024-01-10 10:00:00"],
+        "11300": ["1", "1", "300", "2016-01-01 00:00:00", "2024-01-09 00:00:00"],
+        "42300": ["4", "2", "300", "2016-01-01 00:00:00", "2024-01-10 10:00:00"],
+        "24300": ["2", "4", "300", "2016-01-01 00:00:00", "2020-06-30 23:00:00"],  # no longer measured
+        "17300": ["1", "7", "300", "2016-01-01 00:00:00", "2024-01-09 00:00:00"],  # not a component offered
+        "257": ["2", "5", "7", "2016-01-01 00:00:00", "2021-01-17 11:00:00"],  # a closed station
+    },
+    "networks": {"4": ["4", "BB", "Brandenburg"], "17": ["17", "UB", "UBA"]},
+}
+
+
+def uba_rows(station: str, component: int, scope: int, stamps: list[str], values: list) -> dict:
+    """A measures answer: start -> [component, scope, value, end, index]."""
+    return {"data": {station: {s: [component, scope, v, s, "0"] for s, v in zip(stamps, values, strict=True)}}}
+
+
+@pytest.fixture
+def uba_files(cache_root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Potsdam's hourly NO2 at the turn of 2023 (last year still preliminary), Westerland's daily PM10."""
+    from free_data import uba
+    from free_data.sources import epoch_ms
+    monkeypatch.setattr(uba, "_now", lambda: epoch_ms("2024-01-10T12:00", "Europe/Berlin"))
+    put(cache_root, uba.SOURCE, "meta.json", UBA_META)
+    put(cache_root, uba.SOURCE, "DEBB021/NO2/1SMW/2023-preliminary.json",
+        uba_rows("21", 5, 2, ["2023-12-31 22:00:00", "2023-12-31 23:00:00"], [20, 21]))
+    put(cache_root, uba.SOURCE, "DEBB021/NO2/1SMW/2024.json",
+        uba_rows("21", 5, 2, [f"2024-01-01 0{h}:00:00" for h in range(4)], [30, None, 32, 33]))
+    put(cache_root, uba.SOURCE, "DEUB001/PM10/1TMW/2024.json",  # daily means come labelled at 11:00
+        uba_rows("300", 1, 1, ["2024-01-01 11:00:00", "2024-01-02 11:00:00"], [18, 6]))
+    return cache_root / uba.SOURCE

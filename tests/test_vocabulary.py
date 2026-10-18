@@ -23,7 +23,7 @@ def test_variables_are_well_formed():
     for key, variable in VARIABLES.items():
         assert re.fullmatch(r"[a-z0-9_]+(\.[a-z0-9_]+)*", key), key
         assert variable.label and all(s.strip() for s in variable.synonyms), key
-        assert variable.standard == "" or re.fullmatch(r"(cf:[a-z_]+|entsoe:B\d\d)", variable.standard), key
+        assert variable.standard == "" or re.fullmatch(r"(cf:[a-z0-9_]+|entsoe:B\d\d)", variable.standard), key
 
 
 def test_region_tables_point_into_regions():
@@ -46,7 +46,7 @@ def test_measures_point_into_dimensions():
 
 
 @pytest.fixture
-def every_dataset(pegelonline_stations, hubeau_files, dwd_files) -> list[tuple[str, sources.Dataset]]:
+def every_dataset(pegelonline_stations, hubeau_files, dwd_files, uba_files) -> list[tuple[str, sources.Dataset]]:
     return [(source, d) for source, plugin in sources.discover().items() for d in plugin.datasets()]
 
 

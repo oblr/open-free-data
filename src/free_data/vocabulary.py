@@ -140,6 +140,19 @@ VARIABLES: dict[str, Variable] = {
     "water.waves": _v("Waves", "Wellen", "vagues"),
     "water.other": _v("Other water measurements"),
     "water.groundwater_level": _v("Groundwater level", "Grundwasser", "nappe phréatique"),
+    # ---- air quality ----
+    "air": _v("Air quality", "air pollution", "Luftqualität", "Luftschadstoffe", "qualité de l'air", "pollution"),
+    "air.pm10": _v("Particulate matter PM10", "fine dust", "Feinstaub", "particules fines", "PM10",
+                   standard="cf:mass_concentration_of_pm10_ambient_aerosol_particles_in_air"),
+    "air.pm2_5": _v("Particulate matter PM2.5", "fine dust", "Feinstaub", "particules fines", "PM2.5",
+                    standard="cf:mass_concentration_of_pm2p5_ambient_aerosol_particles_in_air"),
+    "air.no2": _v("Nitrogen dioxide", "NO2", "Stickstoffdioxid", "dioxyde d'azote",
+                  standard="cf:mass_concentration_of_nitrogen_dioxide_in_air"),
+    "air.o3": _v("Ozone", "O3", "Ozon", "ozone", standard="cf:mass_concentration_of_ozone_in_air"),
+    "air.so2": _v("Sulphur dioxide", "sulfur dioxide", "SO2", "Schwefeldioxid", "dioxyde de soufre",
+                  standard="cf:mass_concentration_of_sulfur_dioxide_in_air"),
+    "air.co": _v("Carbon monoxide", "CO", "Kohlenmonoxid", "monoxyde de carbone",
+                 standard="cf:mass_concentration_of_carbon_monoxide_in_air"),
 }
 
 @dataclass(frozen=True)

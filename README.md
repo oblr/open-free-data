@@ -30,6 +30,8 @@ Python 3.11 or newer; the only dependency is numpy.
     free-data-hubeau F700000103/Q --start 2016-05-01 --end 2016-06-30
     free-data-dwd --list potsdam          # DWD weather stations
     free-data-dwd 03987/TT_TU 03987/R1 --resolution day --start 2025-07-01
+    free-data-uba --list potsdam          # UBA air quality stations
+    free-data-uba DEBB021/NO2 DEBB021/PM10 --start 2025-01-01 --end 2025-01-31
     free-data-cache                       # what is cached, per source
     free-data-cache clear de-smard --older-than 30d
 
@@ -65,6 +67,7 @@ All Python code is in the package `src/free_data/`:
 | `pegelonline.py` | Reader for PEGELONLINE, the gauges of the German federal waterways (last 31 days only). |
 | `hubeau.py` | Reader for Hub'eau, the river gauges of France (daily flows for decades, the rest 30 days). |
 | `dwd.py` | Reader for the DWD's hourly weather observations at German stations. |
+| `uba.py` | Reader for the Umweltbundesamt's air quality stations: PM10, PM2.5, NO2, O3, SO2, CO since 2016. |
 | `browser.py` | The local web server: the page and its JSON/CSV API. |
 | `web/` (top level) | The page: `index.html`, TypeScript in `src/`, compiled to `dist/` (committed; both ship in the wheel). |
 

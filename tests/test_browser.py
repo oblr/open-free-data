@@ -126,7 +126,8 @@ def test_every_source_module_is_compiled():
     assert src == dist
 
 
-def test_vocabulary_and_related_endpoints(server, smard_files, pegelonline_stations, hubeau_files, dwd_files):
+def test_vocabulary_and_related_endpoints(server, smard_files, pegelonline_stations, hubeau_files, dwd_files,
+                                          uba_files):
     status, body = get(f"{server}/api/vocabulary")
     terms = json.loads(body)
     assert status == 200 and terms["variables"]["electricity.generation.solar"]["standard"] == "entsoe:B16"

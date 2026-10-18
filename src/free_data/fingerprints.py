@@ -61,6 +61,7 @@ class Series:
     values: np.ndarray  # float64, NaN for gaps
     unit: str  # after the window's step; the dataset's own unit
     zone: str  # the source's timezone, where its days begin
+    window: Window | None = None  # what it was read over; None when made by hand
 
 
 @dataclass(frozen=True)
@@ -179,15 +180,15 @@ def read(keys: list[str], window: Window) -> dict[str, Series]:
                                                plugin.timezone)
         for i, (dataset, unit) in enumerate(zip(table.columns, column_units, strict=True)):
             found[f"{source}:{dataset}"] = Series(f"{source}:{dataset}", described[dataset], table.time,
-                                                  table.values[:, i], unit, plugin.timezone)
+                                                  table.values[:, i], unit, plugin.timezone, window)
     return found
 
 
 def align(a: Series, b: Series) -> tuple[Series, Series]:
     """Both series on the times they share; values may still be NaN."""
     _, ia, ib = np.intersect1d(a.time, b.time, assume_unique=True, return_indices=True)
-    return (Series(a.key, a.dataset, a.time[ia], a.values[ia], a.unit, a.zone),
-            Series(b.key, b.dataset, b.time[ib], b.values[ib], b.unit, b.zone))
+    return (Series(a.key, a.dataset, a.time[ia], a.values[ia], a.unit, a.zone, a.window),
+            Series(b.key, b.dataset, b.time[ib], b.values[ib], b.unit, b.zone, b.window))
 
 
 def related_pairs(targets: list[relations.Entry], entries: list[relations.Entry]) -> list[tuple[str, str]]:
